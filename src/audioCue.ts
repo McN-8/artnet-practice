@@ -50,7 +50,7 @@ fadeOutDuration: number;
 
     this.fadeInDuration = fadeInDuration;
 
-this.fadeOutDuration = fadeOutDuration;
+    this.fadeOutDuration = fadeOutDuration;
 
   }
 

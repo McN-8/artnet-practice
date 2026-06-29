@@ -44,7 +44,11 @@ export class Engine {
 
     );
 
-    this.currentState = destinationState;
+    this.currentState.exit();
+
+this.currentState = destinationState;
+
+this.currentState.enter();
 
   }
 

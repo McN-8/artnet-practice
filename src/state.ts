@@ -72,4 +72,16 @@ export class State {
 
   }
 
+  enter(): void {
+
+  console.log(`Entering ${this.id}`);
+
+}
+
+exit(): void {
+
+  console.log(`Exiting ${this.id}`);
+
+}
+  
 }
