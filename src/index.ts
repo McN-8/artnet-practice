@@ -56,6 +56,20 @@ const forestAmbience = new AudioCue(
 
 );
 
+const punchSound = new AudioCue(
+
+  "punch.wav",
+
+  "soundEffect",
+
+  false,
+
+  1.0,
+
+  "onPrompt"
+
+);
+
 const leafDrift = new Effect(
 
   "floatingLeaves",
@@ -93,6 +107,8 @@ const forwardTransition = new Transition(
   800
 
 );
+
+forwardTransition.addTriggeredAudioCue(punchSound);
 
 const goForward = new Prompt(
 
@@ -159,5 +175,11 @@ console.log(
 console.log(
 
   `${state2.id} zoom enabled: ${state2.zoomEnabled}, interactive: ${state2.zoomInteractive}.`
+
+);
+
+console.log(
+
+  `Forward transition has ${forwardTransition.triggeredAudioCues.length} triggered audio cue.`
 
 );
