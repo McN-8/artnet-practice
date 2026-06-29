@@ -8,6 +8,8 @@ import { AudioCue } from "./audioCue.js";
 
 import { Prompt } from "./prompt.js";
 
+import { Effect } from "./effect.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -46,11 +48,23 @@ const forestAmbience = new AudioCue(
 
 );
 
+const leafDrift = new Effect(
+
+  "floatingLeaves",
+
+  "onEnterState",
+
+  5000
+
+);
+
 const goForward = new Prompt("tapRight", "state-2");
 
 const goBackward = new Prompt("tapLeft", "state-1");
 
 state1.addAudioCue(forestAmbience);
+
+state1.addEffect(leafDrift);
 
 state1.addPrompt(goForward);
 
@@ -73,5 +87,11 @@ console.log(
 console.log(
 
   `${state2.id} has ${state2.prompts.length} prompt.`
+
+);
+
+console.log(
+
+  `${state1.id} has ${state1.effects.length} effect.`
 
 );

@@ -2,6 +2,8 @@ import { AudioCue } from "./audioCue.js";
 
 import { Prompt } from "./prompt.js";
 
+import { Effect } from "./effect.js";
+
 export class State {
 
   id: string;
@@ -13,6 +15,8 @@ export class State {
   audioCues: AudioCue[];
 
   prompts: Prompt[];
+
+  effects: Effect[];
 
   constructor(id: string, image: string, dialogue: string) {
 
@@ -26,6 +30,8 @@ export class State {
 
     this.prompts = [];
 
+    this.effects = [];
+
   }
 
   addAudioCue(audioCue: AudioCue): void {
@@ -37,6 +43,12 @@ export class State {
   addPrompt(prompt: Prompt): void {
 
     this.prompts.push(prompt);
+
+  }
+
+  addEffect(effect: Effect): void {
+
+    this.effects.push(effect);
 
   }
 
