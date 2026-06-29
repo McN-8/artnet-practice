@@ -1,8 +1,8 @@
-import { Story } from "./story";
+import { Story } from "./story.js";
 
-import { Chapter } from "./chapter";
+import { Chapter } from "./chapter.js";
 
-import { Panel } from "./panel";
+import { Panel } from "./panel.js";
 
 const story = new Story(
 
