@@ -14,6 +14,8 @@ import { InputType } from "./inputType.js";
 
 import { Transition } from "./transition.js";
 
+import { Engine } from "./engine.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -41,6 +43,8 @@ const state2 = new State(
   true
 
 );
+
+const engine = new Engine(state1);
 
 const forestAmbience = new AudioCue(
 
@@ -181,5 +185,19 @@ console.log(
 console.log(
 
   `Forward transition has ${forwardTransition.triggeredAudioCues.length} triggered audio cue.`
+
+);
+
+console.log(
+
+  `Current state is ${engine.currentState.id}`
+
+);
+
+engine.setState(state2);
+
+console.log(
+
+  `Current state is now ${engine.currentState.id}`
 
 );
