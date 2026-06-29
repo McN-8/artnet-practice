@@ -12,6 +12,8 @@ import { Effect } from "./effect.js";
 
 import { InputType } from "./inputType.js";
 
+import { Transition } from "./transition.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -32,15 +34,11 @@ const state2 = new State(
 
   "extended_branch.png",
 
-  "A branch slowly lowered a piece of fruit toward him."
+  "A branch slowly lowered a piece of fruit toward him.",
 
-);
+  true,
 
-const inspectDetail = new Prompt(
-
-  InputType.PINCH_ZOOM,
-
-  "state-2"
+  true
 
 );
 
@@ -68,9 +66,59 @@ const leafDrift = new Effect(
 
 );
 
-const goForward = new Prompt("tapRight", "state-2");
+const zoomTransition = new Transition(
 
-const goBackward = new Prompt("tapLeft", "state-1");
+  "state-2",
+
+  "zoomInspect",
+
+  300
+
+);
+
+const inspectDetail = new Prompt(
+
+  InputType.PINCH_ZOOM,
+
+  zoomTransition
+
+);
+
+const forwardTransition = new Transition(
+
+  "state-2",
+
+  "fadeIn",
+
+  800
+
+);
+
+const goForward = new Prompt(
+
+  InputType.TAP_RIGHT,
+
+  forwardTransition
+
+);
+
+const backwardTransition = new Transition(
+
+  "state-1",
+
+  "fadeOut",
+
+  500
+
+);
+
+const goBackward = new Prompt(
+
+  InputType.TAP_LEFT,
+
+  backwardTransition
+
+);
 
 state1.addAudioCue(forestAmbience);
 

@@ -1,14 +1,18 @@
+import { InputType } from "./inputType.js";
+
+import { Transition } from "./transition.js";
+
 export class Prompt {
 
-  inputType: string;
+  inputType: InputType;
 
-  destinationStateId: string;
+  transition: Transition;
 
-  constructor(inputType: string, destinationStateId: string) {
+  constructor(inputType: InputType, transition: Transition) {
 
     this.inputType = inputType;
 
-    this.destinationStateId = destinationStateId;
+    this.transition = transition;
 
   }
 
