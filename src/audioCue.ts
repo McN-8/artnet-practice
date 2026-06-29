@@ -12,6 +12,10 @@ export class AudioCue {
 
   persistsAcrossStates: boolean;
 
+  fadeInDuration: number;
+
+fadeOutDuration: number;
+
   constructor(
 
     file: string,
@@ -24,7 +28,11 @@ export class AudioCue {
 
     trigger: string,
 
-    persistsAcrossStates: boolean = false
+    persistsAcrossStates: boolean = false,
+
+    fadeInDuration: number = 0,
+
+  fadeOutDuration: number = 0
 
   ) {
 
@@ -39,6 +47,10 @@ export class AudioCue {
     this.trigger = trigger;
 
     this.persistsAcrossStates = persistsAcrossStates;
+
+    this.fadeInDuration = fadeInDuration;
+
+this.fadeOutDuration = fadeOutDuration;
 
   }
 

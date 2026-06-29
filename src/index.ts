@@ -56,7 +56,13 @@ const forestAmbience = new AudioCue(
 
   0.8,
 
-  "onEnterState"
+  "onEnterState",
+
+  true,
+
+  1000,
+
+  1000
 
 );
 
@@ -70,7 +76,13 @@ const punchSound = new AudioCue(
 
   1.0,
 
-  "onPrompt"
+  "onPrompt",
+
+  false,
+
+  0,
+
+  0
 
 );
 
