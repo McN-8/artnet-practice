@@ -38,7 +38,11 @@ const forestAmbience = new AudioCue(
 
   "ambience",
 
-  true
+  true,
+
+  0.8,
+
+  "onEnterState"
 
 );
 
