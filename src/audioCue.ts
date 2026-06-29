@@ -10,6 +10,8 @@ export class AudioCue {
 
   trigger: string;
 
+  persistsAcrossStates: boolean;
+
   constructor(
 
     file: string,
@@ -20,7 +22,9 @@ export class AudioCue {
 
     volume: number,
 
-    trigger: string
+    trigger: string,
+
+    persistsAcrossStates: boolean = false
 
   ) {
 
@@ -33,6 +37,8 @@ export class AudioCue {
     this.volume = volume;
 
     this.trigger = trigger;
+
+    this.persistsAcrossStates = persistsAcrossStates;
 
   }
 
