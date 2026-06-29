@@ -4,6 +4,8 @@ import { Prompt } from "./prompt.js";
 
 import { Effect } from "./effect.js";
 
+import { ZoomRegion } from "./zoomRegion.js";
+
 export class State {
 
   id: string;
@@ -15,6 +17,8 @@ export class State {
   zoomEnabled: boolean;
 
   zoomInteractive: boolean;
+
+  zoomRegions: ZoomRegion[];
 
   audioCues: AudioCue[];
 
@@ -46,6 +50,8 @@ export class State {
 
     this.zoomInteractive = zoomInteractive;
 
+    this.zoomRegions = [];
+
     this.audioCues = [];
 
     this.prompts = [];
@@ -54,6 +60,12 @@ export class State {
 
   }
 
+  addZoomRegion(zoomRegion: ZoomRegion): void {
+
+  this.zoomRegions.push(zoomRegion);
+
+}
+  
   addAudioCue(audioCue: AudioCue): void {
 
     this.audioCues.push(audioCue);

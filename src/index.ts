@@ -16,6 +16,8 @@ import { Transition } from "./transition.js";
 
 import { Engine } from "./engine.js";
 
+import { ZoomRegion } from "./zoomRegion.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -41,6 +43,22 @@ const state2 = new State(
   true,
 
   true
+
+);
+
+const hiddenClipboardText = new ZoomRegion(
+
+  "clipboard-clue",
+
+  120,
+
+  80,
+
+  200,
+
+  100,
+
+  "Small text on the clipboard reads: Project Temple 01."
 
 );
 
@@ -158,6 +176,8 @@ state1.addEffect(leafDrift);
 
 state1.addPrompt(goForward);
 
+state2.addZoomRegion(hiddenClipboardText);
+
 state2.addPrompt(goBackward);
 
 state2.addPrompt(inspectDetail);
@@ -211,5 +231,11 @@ engine.executePrompt(goForward);
 console.log(
 
   `Current state is now ${engine.currentState.id}`
+
+);
+
+console.log(
+
+  `${state2.id} has ${state2.zoomRegions.length} zoom region.`
 
 );
