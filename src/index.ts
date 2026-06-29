@@ -10,6 +10,8 @@ import { Prompt } from "./prompt.js";
 
 import { Effect } from "./effect.js";
 
+import { InputType } from "./inputType.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -31,6 +33,14 @@ const state2 = new State(
   "extended_branch.png",
 
   "A branch slowly lowered a piece of fruit toward him."
+
+);
+
+const inspectDetail = new Prompt(
+
+  InputType.PINCH_ZOOM,
+
+  "state-2"
 
 );
 
@@ -70,6 +80,8 @@ state1.addPrompt(goForward);
 
 state2.addPrompt(goBackward);
 
+state2.addPrompt(inspectDetail);
+
 chapter1.addState(state1);
 
 chapter1.addState(state2);
@@ -93,5 +105,11 @@ console.log(
 console.log(
 
   `${state1.id} has ${state1.effects.length} effect.`
+
+);
+
+console.log(
+
+  `${state2.id} zoom enabled: ${state2.zoomEnabled}, interactive: ${state2.zoomInteractive}.`
 
 );
