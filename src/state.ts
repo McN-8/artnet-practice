@@ -1,6 +1,10 @@
 import { AudioCue } from "./audioCue.js";
 
-export class Panel {
+import { Prompt } from "./prompt.js";
+
+export class State {
+
+  id: string;
 
   image: string;
 
@@ -8,7 +12,11 @@ export class Panel {
 
   audioCues: AudioCue[];
 
-  constructor(image: string, dialogue: string) {
+  prompts: Prompt[];
+
+  constructor(id: string, image: string, dialogue: string) {
+
+    this.id = id;
 
     this.image = image;
 
@@ -16,11 +24,19 @@ export class Panel {
 
     this.audioCues = [];
 
+    this.prompts = [];
+
   }
 
   addAudioCue(audioCue: AudioCue): void {
 
     this.audioCues.push(audioCue);
+
+  }
+
+  addPrompt(prompt: Prompt): void {
+
+    this.prompts.push(prompt);
 
   }
 

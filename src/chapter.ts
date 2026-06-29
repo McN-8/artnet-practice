@@ -1,22 +1,22 @@
-import { Panel } from "./panel.js";
+import { State } from "./state.js";
 
 export class Chapter {
 
   title: string;
 
-  panels: Panel[];
+  states: State[];
 
   constructor(title: string) {
 
     this.title = title;
 
-    this.panels = [];
+    this.states = [];
 
   }
 
-  addPanel(panel: Panel): void {
+  addState(state: State): void {
 
-    this.panels.push(panel);
+    this.states.push(state);
 
   }
 

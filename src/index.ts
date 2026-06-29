@@ -2,19 +2,33 @@ import { Story } from "./story.js";
 
 import { Chapter } from "./chapter.js";
 
-import { Panel } from "./panel.js";
+import { State } from "./state.js";
 
 import { AudioCue } from "./audioCue.js";
+
+import { Prompt } from "./prompt.js";
 
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
 
-const panel1 = new Panel(
+const state1 = new State(
+
+  "state-1",
 
   "forest_canopy.png",
 
   "Onekus stared curiously at the unconscious boy."
+
+);
+
+const state2 = new State(
+
+  "state-2",
+
+  "extended_branch.png",
+
+  "A branch slowly lowered a piece of fruit toward him."
 
 );
 
@@ -28,21 +42,19 @@ const forestAmbience = new AudioCue(
 
 );
 
-const punchSound = new AudioCue(
+const goForward = new Prompt("tapRight", "state-2");
 
-  "punch.wav",
+const goBackward = new Prompt("tapLeft", "state-1");
 
-  "soundEffect",
+state1.addAudioCue(forestAmbience);
 
-  false
+state1.addPrompt(goForward);
 
-);
+state2.addPrompt(goBackward);
 
-panel1.addAudioCue(forestAmbience);
+chapter1.addState(state1);
 
-panel1.addAudioCue(punchSound);
-
-chapter1.addPanel(panel1);
+chapter1.addState(state2);
 
 story.addChapter(chapter1);
 
@@ -50,6 +62,12 @@ story.describe();
 
 console.log(
 
-  `First panel has ${panel1.audioCues.length} audio cues.`
+  `${state1.id} has ${state1.prompts.length} prompt.`
+
+);
+
+console.log(
+
+  `${state2.id} has ${state2.prompts.length} prompt.`
 
 );
