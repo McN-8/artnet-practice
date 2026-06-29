@@ -72,15 +72,39 @@ export class State {
 
   }
 
-  enter(): void {
+ enter(): void {
 
   console.log(`Entering ${this.id}`);
+
+  for (const audioCue of this.audioCues) {
+
+    console.log(
+
+      `Starting audio: ${audioCue.file}`
+
+    );
+
+  }
 
 }
 
 exit(): void {
 
   console.log(`Exiting ${this.id}`);
+
+  for (const audioCue of this.audioCues) {
+
+    if (!audioCue.persistsAcrossStates) {
+
+      console.log(
+
+        `Stopping audio: ${audioCue.file}`
+
+      );
+
+    }
+
+  }
 
 }
   
