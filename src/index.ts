@@ -44,7 +44,7 @@ const state2 = new State(
 
 );
 
-const engine = new Engine(state1);
+const engine = new Engine(state1, [state1, state2]);
 
 const forestAmbience = new AudioCue(
 
@@ -194,7 +194,7 @@ console.log(
 
 );
 
-engine.setState(state2);
+engine.executePrompt(goForward);
 
 console.log(
 
