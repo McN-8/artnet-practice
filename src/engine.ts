@@ -16,6 +16,14 @@ export class Engine {
 
   }
 
+preloadStateAssets(state: State): void {
+  console.log(`Preloading assets for ${state.id}`);
+
+  for (const asset of state.assets) {
+    console.log(`Preloading ${asset.type}: ${asset.file}`);
+  }
+}
+
   executePrompt(prompt: Prompt): void {
 
     const destinationState = this.states.find(
@@ -43,6 +51,8 @@ export class Engine {
       `Triggered audio cues: ${prompt.transition.triggeredAudioCues.length}`
 
     );
+
+this.preloadStateAssets(destinationState);
 
     this.currentState.exit();
 

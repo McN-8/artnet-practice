@@ -6,6 +6,8 @@ import { Effect } from "./effect.js";
 
 import { ZoomRegion } from "./zoomRegion.js";
 
+import { Asset } from "./asset.js";
+
 export class State {
 
   id: string;
@@ -25,6 +27,8 @@ export class State {
   prompts: Prompt[];
 
   effects: Effect[];
+
+  assets: Asset[];
 
   constructor(
 
@@ -58,6 +62,8 @@ export class State {
 
     this.effects = [];
 
+    this.assets = [];
+
   }
 
   addZoomRegion(zoomRegion: ZoomRegion): void {
@@ -81,6 +87,12 @@ export class State {
   addEffect(effect: Effect): void {
 
     this.effects.push(effect);
+
+  }
+
+  addAsset(asset: Asset): void {
+
+    this.assets.push(asset);
 
   }
 

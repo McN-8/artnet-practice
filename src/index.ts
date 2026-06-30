@@ -18,6 +18,8 @@ import { Engine } from "./engine.js";
 
 import { ZoomRegion } from "./zoomRegion.js";
 
+import { Asset } from "./asset.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -44,6 +46,16 @@ const state2 = new State(
 
   true
 
+);
+
+const state2Image = new Asset(
+  "extended_branch.png",
+  "image"
+);
+
+const state2Ambience = new Asset(
+  "forest_ambience.mp3",
+  "audio"
 );
 
 const hiddenClipboardText = new ZoomRegion(
@@ -175,6 +187,10 @@ state1.addAudioCue(forestAmbience);
 state1.addEffect(leafDrift);
 
 state1.addPrompt(goForward);
+
+state2.addAsset(state2Image);
+
+state2.addAsset(state2Ambience);
 
 state2.addZoomRegion(hiddenClipboardText);
 
