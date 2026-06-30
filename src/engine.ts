@@ -8,21 +8,75 @@ export class Engine {
 
   states: State[];
 
-  constructor(initialState: State, states: State[]) {
+  preloadBackwardSpan: number;
+
+  preloadForwardSpan: number;
+
+  constructor(
+
+    initialState: State,
+
+    states: State[],
+
+    preloadBackwardSpan: number = 1,
+
+    preloadForwardSpan: number = 2
+
+  ) {
 
     this.currentState = initialState;
 
     this.states = states;
 
+    this.preloadBackwardSpan = preloadBackwardSpan;
+
+    this.preloadForwardSpan = preloadForwardSpan;
+
   }
 
-preloadStateAssets(state: State): void {
-  console.log(`Preloading assets for ${state.id}`);
+  preloadStateAssets(state: State): void {
 
-  for (const asset of state.assets) {
-    console.log(`Preloading ${asset.type}: ${asset.file}`);
+    console.log(`Preloading assets for ${state.id}`);
+
+    for (const asset of state.assets) {
+
+      console.log(`Preloading ${asset.type}: ${asset.file}`);
+
+    }
+
   }
-}
+
+  preloadNearbyStates(currentIndex: number): void {
+
+    const start = Math.max(
+
+      0,
+
+      currentIndex - this.preloadBackwardSpan
+
+    );
+
+    const end = Math.min(
+
+      this.states.length - 1,
+
+      currentIndex + this.preloadForwardSpan
+
+    );
+
+    for (let i = start; i <= end; i++) {
+
+      if (i === currentIndex) {
+
+        continue;
+
+      }
+
+      this.preloadStateAssets(this.states[i]!);
+
+    }
+
+  }
 
   executePrompt(prompt: Prompt): void {
 
@@ -52,13 +106,13 @@ preloadStateAssets(state: State): void {
 
     );
 
-this.preloadStateAssets(destinationState);
+    this.preloadStateAssets(destinationState);
 
     this.currentState.exit();
 
-this.currentState = destinationState;
+    this.currentState = destinationState;
 
-this.currentState.enter();
+    this.currentState.enter();
 
   }
 
