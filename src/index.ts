@@ -26,6 +26,8 @@ import { CameraFocalPoint } from "./cameraFocalPoint.js";
 
 import { CameraPath } from "./cameraPath.js";
 
+import { CameraEvent } from "./cameraEvent.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -238,6 +240,14 @@ const canopyToBoyPath = new CameraPath(
 
 );
 
+const revealBoyEvent = new CameraEvent(
+
+  1500,
+
+  canopyToBoyPath
+
+);
+
 state1.addAudioCue(forestAmbience);
 
 state1.addEffect(leafDrift);
@@ -251,6 +261,8 @@ state1.addCameraFocalPoint(onekusFocus);
 state1.addCameraFocalPoint(boyFocus);
 
 state1.addCameraPath(canopyToBoyPath);
+
+state1.addCameraEvent(revealBoyEvent);
 
 state2.addAsset(state2Image);
 
@@ -338,4 +350,8 @@ console.log(
 
 console.log(
   `${state1.id} has ${state1.cameraPaths.length} camera path.`
+);
+
+console.log(
+  `${state1.id} has ${state1.cameraEvents.length} camera event.`
 );

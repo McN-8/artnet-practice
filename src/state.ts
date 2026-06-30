@@ -14,6 +14,8 @@ import { CameraFocalPoint } from "./cameraFocalPoint.js";
 
 import { CameraPath } from "./cameraPath.js";
 
+import { CameraEvent } from "./cameraEvent.js";
+
 export class State {
 
   id: string;
@@ -41,6 +43,8 @@ export class State {
   cameraFocalPoints: CameraFocalPoint[];
 
   cameraPaths: CameraPath[];
+
+  cameraEvents: CameraEvent[];
 
   constructor(
 
@@ -81,6 +85,8 @@ export class State {
     this.cameraFocalPoints = [];
 
     this.cameraPaths = [];
+
+    this.cameraEvents = [];
 
   }
 
@@ -141,6 +147,12 @@ export class State {
   addCameraPath(cameraPath: CameraPath): void {
 
   this.cameraPaths.push(cameraPath);
+
+  }
+
+  addCameraEvent(cameraEvent: CameraEvent): void {
+
+  this.cameraEvents.push(cameraEvent);
 
   }
 
