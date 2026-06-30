@@ -8,6 +8,8 @@ import { ZoomRegion } from "./zoomRegion.js";
 
 import { Asset } from "./asset.js";
 
+import { CameraBehavior } from "./cameraBehavior.js";
+
 export class State {
 
   id: string;
@@ -29,6 +31,8 @@ export class State {
   effects: Effect[];
 
   assets: Asset[];
+
+  cameraBehaviors: CameraBehavior[];
 
   constructor(
 
@@ -64,6 +68,8 @@ export class State {
 
     this.assets = [];
 
+    this.cameraBehaviors = [];
+
   }
 
   addZoomRegion(zoomRegion: ZoomRegion): void {
@@ -95,6 +101,16 @@ export class State {
     this.assets.push(asset);
 
   }
+
+  addCameraBehavior(
+
+  cameraBehavior: CameraBehavior
+
+): void {
+
+  this.cameraBehaviors.push(cameraBehavior);
+
+}
 
  enter(): void {
 

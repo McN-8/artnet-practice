@@ -20,6 +20,8 @@ import { ZoomRegion } from "./zoomRegion.js";
 
 import { Asset } from "./asset.js";
 
+import { CameraBehavior } from "./cameraBehavior.js";
+
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
 
 const chapter1 = new Chapter("The Boy in the Tree");
@@ -186,11 +188,21 @@ const goBackward = new Prompt(
 
 );
 
+const canopyPan = new CameraBehavior(
+
+  "slowPanDown",
+
+  3000
+
+);
+
 state1.addAudioCue(forestAmbience);
 
 state1.addEffect(leafDrift);
 
 state1.addPrompt(goForward);
+
+state1.addCameraBehavior(canopyPan);
 
 state2.addAsset(state2Image);
 
@@ -266,4 +278,8 @@ console.log(
 
 console.log(
   `Forest ambience belongs to layer group: ${forestAmbience.layerGroup}`
+);
+
+console.log(
+  `${state1.id} has ${state1.cameraBehaviors.length} camera behavior.`
 );
