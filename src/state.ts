@@ -10,6 +10,8 @@ import { Asset } from "./asset.js";
 
 import { CameraBehavior } from "./cameraBehavior.js";
 
+import { CameraFocalPoint } from "./cameraFocalPoint.js";
+
 export class State {
 
   id: string;
@@ -33,6 +35,8 @@ export class State {
   assets: Asset[];
 
   cameraBehaviors: CameraBehavior[];
+
+  cameraFocalPoints: CameraFocalPoint[];
 
   constructor(
 
@@ -70,13 +74,15 @@ export class State {
 
     this.cameraBehaviors = [];
 
+    this.cameraFocalPoints = [];
+
   }
 
   addZoomRegion(zoomRegion: ZoomRegion): void {
 
   this.zoomRegions.push(zoomRegion);
 
-}
+  }
   
   addAudioCue(audioCue: AudioCue): void {
 
@@ -106,11 +112,25 @@ export class State {
 
   cameraBehavior: CameraBehavior
 
-): void {
+  ): void {
 
   this.cameraBehaviors.push(cameraBehavior);
 
-}
+  }
+
+  addCameraFocalPoint(
+
+  cameraFocalPoint: CameraFocalPoint
+
+  ): void {
+
+  this.cameraFocalPoints.push(
+
+    cameraFocalPoint
+
+  );
+
+  }
 
  enter(): void {
 
