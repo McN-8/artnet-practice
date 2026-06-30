@@ -236,7 +236,9 @@ const canopyToBoyPath = new CameraPath(
 
   3000,
 
-  "easeInOut"
+  "easeInOut",
+
+  "slow"
 
 );
 
@@ -354,4 +356,8 @@ console.log(
 
 console.log(
   `${state1.id} has ${state1.cameraEvents.length} camera event.`
+);
+
+console.log(
+  `Camera path speed: ${canopyToBoyPath.speed}`
 );
