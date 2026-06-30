@@ -2,6 +2,8 @@ import { State } from "./state.js";
 
 import { Prompt } from "./prompt.js";
 
+import { AssetCache } from "./assetCache.js";
+
 export class Engine {
 
   currentState: State;
@@ -11,6 +13,8 @@ export class Engine {
   preloadBackwardSpan: number;
 
   preloadForwardSpan: number;
+
+  assetCache: AssetCache;
 
   constructor(
 
@@ -32,6 +36,8 @@ export class Engine {
 
     this.preloadForwardSpan = preloadForwardSpan;
 
+    this.assetCache = new AssetCache();
+
   }
 
   preloadStateAssets(state: State): void {
@@ -40,8 +46,7 @@ export class Engine {
 
     for (const asset of state.assets) {
 
-      console.log(`Preloading ${asset.type}: ${asset.file}`);
-
+      this.assetCache.loadAsset(asset.file);
     }
 
   }
