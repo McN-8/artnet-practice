@@ -248,6 +248,8 @@ console.log(
 
 engine.preloadNearbyStates(0);
 
+engine.unloadDistantStateAssets(0);
+
 engine.executePrompt(goForward);
 
 console.log(

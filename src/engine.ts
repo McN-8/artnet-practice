@@ -83,6 +83,34 @@ export class Engine {
 
   }
 
+  unloadDistantStateAssets(currentIndex: number): void {
+  const keepStart = Math.max(
+    0,
+    currentIndex - this.preloadBackwardSpan
+  );
+
+  const keepEnd = Math.min(
+    this.states.length - 1,
+    currentIndex + this.preloadForwardSpan
+  );
+
+  for (let i = 0; i < this.states.length; i++) {
+    if (i >= keepStart && i <= keepEnd) {
+      continue;
+    }
+
+    const state = this.states[i];
+
+    if (!state) {
+      continue;
+    }
+
+    for (const asset of state.assets) {
+      this.assetCache.unloadAsset(asset.file);
+    }
+  }
+}
+  
   executePrompt(prompt: Prompt): void {
 
     const destinationState = this.states.find(
