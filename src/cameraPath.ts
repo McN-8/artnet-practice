@@ -6,7 +6,7 @@ export class CameraPath {
   endPoint: CameraFocalPoint;
   duration: number;
   easing: string;
-  speed: string;
+  speedMultiplier: number;
 
   constructor(
     id: string,
@@ -14,13 +14,13 @@ export class CameraPath {
     endPoint: CameraFocalPoint,
     duration: number,
     easing: string,
-    speed: string = "normal"
+    speedMultiplier: number = 1.0
   ) {
     this.id = id;
     this.startPoint = startPoint;
     this.endPoint = endPoint;
     this.duration = duration;
     this.easing = easing;
-    this.speed = speed;
+    this.speedMultiplier = speedMultiplier;
   }
 }
