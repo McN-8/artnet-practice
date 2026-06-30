@@ -168,3 +168,4 @@ engine.unloadDistantStateAssets(0);
 engine.executePrompt(goForward);
 
 console.log(`Current state is now ${engine.currentState.id}`);
+console.log(`${state1.id} auto advance enabled: ${state1.autoAdvanceEnabled}`);

@@ -46,6 +46,12 @@ export class State {
 
   cameraEvents: CameraEvent[];
 
+  autoAdvanceEnabled: boolean;
+
+  autoAdvanceDelay: number;
+
+  autoAdvancePrompt?: Prompt;
+
   constructor(
 
     id: string,
@@ -87,6 +93,10 @@ export class State {
     this.cameraPaths = [];
 
     this.cameraEvents = [];
+
+    this.autoAdvanceEnabled = false;
+
+    this.autoAdvanceDelay = 0;
 
   }
 
@@ -154,6 +164,12 @@ export class State {
 
   this.cameraEvents.push(cameraEvent);
 
+  }
+
+  enableAutoAdvance(delay: number, prompt: Prompt): void {
+  this.autoAdvanceEnabled = true;
+  this.autoAdvanceDelay = delay;
+  this.autoAdvancePrompt = prompt;
   }
 
  enter(): void {
