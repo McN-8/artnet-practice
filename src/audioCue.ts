@@ -14,7 +14,9 @@ export class AudioCue {
 
   fadeInDuration: number;
 
-fadeOutDuration: number;
+  fadeOutDuration: number;
+
+  layerGroup: string;
 
   constructor(
 
@@ -32,7 +34,9 @@ fadeOutDuration: number;
 
     fadeInDuration: number = 0,
 
-  fadeOutDuration: number = 0
+    fadeOutDuration: number = 0,
+
+    layerGroup: string = "default"
 
   ) {
 
@@ -51,6 +55,8 @@ fadeOutDuration: number;
     this.fadeInDuration = fadeInDuration;
 
     this.fadeOutDuration = fadeOutDuration;
+
+    this.layerGroup = layerGroup;
 
   }
 

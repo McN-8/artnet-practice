@@ -92,7 +92,9 @@ const forestAmbience = new AudioCue(
 
   1000,
 
-  1000
+  1000,
+
+  "forest"
 
 );
 
@@ -112,7 +114,9 @@ const punchSound = new AudioCue(
 
   0,
 
-  0
+  0,
+
+  "impact"
 
 );
 
@@ -254,4 +258,8 @@ console.log(
 
   `${state2.id} has ${state2.zoomRegions.length} zoom region.`
 
+);
+
+console.log(
+  `Forest ambience belongs to layer group: ${forestAmbience.layerGroup}`
 );
