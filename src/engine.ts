@@ -101,28 +101,39 @@ export class Engine {
 
   // Auto Advance
   scheduleAutoAdvance(): void {
-    if (!this.currentState.autoAdvanceEnabled) {
-      console.log(`Auto advance disabled for ${this.currentState.id}`);
-      return;
-    }
-
-    if (!this.currentState.autoAdvancePrompt) {
-      console.log(`Auto advance prompt missing for ${this.currentState.id}`);
-      return;
-    }
-
-    console.log(
-      `Auto advancing from ${this.currentState.id} in ${this.currentState.autoAdvanceDelay}ms.`
-    );
-
-    setTimeout(() => {
-      if (!this.currentState.autoAdvancePrompt) {
-        return;
-      }
-
-      this.executePrompt(this.currentState.autoAdvancePrompt);
-    }, this.currentState.autoAdvanceDelay);
+  if (!this.currentState.autoAdvanceEnabled) {
+    console.log(`Auto advance disabled for ${this.currentState.id}`);
+    return;
   }
+
+  if (!this.currentState.autoAdvancePrompt) {
+    console.log(`Auto advance prompt missing for ${this.currentState.id}`);
+    return;
+  }
+
+  let effectiveDelay = this.currentState.autoAdvanceDelay;
+
+  if (
+    this.fastForwardActive &&
+    this.currentState.fastForwardEnabled
+  ) {
+    effectiveDelay =
+      this.currentState.autoAdvanceDelay /
+      this.currentState.fastForwardMultiplier;
+  }
+
+  console.log(
+    `Auto advancing from ${this.currentState.id} in ${effectiveDelay}ms.`
+  );
+
+  setTimeout(() => {
+    if (!this.currentState.autoAdvancePrompt) {
+      return;
+    }
+
+    this.executePrompt(this.currentState.autoAdvancePrompt);
+  }, effectiveDelay);
+}
 
   // Prompt Execution
   executePrompt(prompt: Prompt): void {
