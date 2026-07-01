@@ -1,211 +1,193 @@
 import { AudioCue } from "./audioCue.js";
-
 import { Prompt } from "./prompt.js";
-
 import { Effect } from "./effect.js";
-
 import { ZoomRegion } from "./zoomRegion.js";
-
 import { Asset } from "./asset.js";
-
 import { CameraBehavior } from "./cameraBehavior.js";
-
 import { CameraFocalPoint } from "./cameraFocalPoint.js";
-
 import { CameraPath } from "./cameraPath.js";
-
 import { CameraEvent } from "./cameraEvent.js";
 
 export class State {
 
+  // Core State Data
   id: string;
-
   image: string;
-
   dialogue: string;
 
+  // Zoom
   zoomEnabled: boolean;
-
   zoomInteractive: boolean;
-
   zoomRegions: ZoomRegion[];
 
+  // Audio
   audioCues: AudioCue[];
 
+  // Interaction
   prompts: Prompt[];
 
+  // Effects
   effects: Effect[];
 
+  // Assets
   assets: Asset[];
 
+  // Camera
   cameraBehaviors: CameraBehavior[];
-
   cameraFocalPoints: CameraFocalPoint[];
-
   cameraPaths: CameraPath[];
-
   cameraEvents: CameraEvent[];
 
+  // Auto Advance
   autoAdvanceEnabled: boolean;
-
   autoAdvanceDelay: number;
-
   autoAdvancePrompt?: Prompt;
 
+  // Input Control
+  inputLocked: boolean;
+  inputLockDuration: number;
+  fastForwardEnabled: boolean;
+  fastForwardMultiplier: number;
+
   constructor(
-
     id: string,
-
     image: string,
-
     dialogue: string,
-
     zoomEnabled: boolean = false,
-
     zoomInteractive: boolean = false
-
   ) {
 
+    // Core State Data
     this.id = id;
-
     this.image = image;
-
     this.dialogue = dialogue;
 
+    // Zoom
     this.zoomEnabled = zoomEnabled;
-
     this.zoomInteractive = zoomInteractive;
-
     this.zoomRegions = [];
 
+    // Audio
     this.audioCues = [];
 
+    // Interaction
     this.prompts = [];
 
+    // Effects
     this.effects = [];
 
+    // Assets
     this.assets = [];
 
+    // Camera
     this.cameraBehaviors = [];
-
     this.cameraFocalPoints = [];
-
     this.cameraPaths = [];
-
     this.cameraEvents = [];
 
+    // Auto Advance
     this.autoAdvanceEnabled = false;
-
     this.autoAdvanceDelay = 0;
 
+    // Input Control
+    this.inputLocked = false;
+    this.inputLockDuration = 0;
+    this.fastForwardEnabled = true;
+    this.fastForwardMultiplier = 2.0;
   }
 
-  addZoomRegion(zoomRegion: ZoomRegion): void {
-
-  this.zoomRegions.push(zoomRegion);
-
-  }
-  
-  addAudioCue(audioCue: AudioCue): void {
-
-    this.audioCues.push(audioCue);
-
-  }
-
-  addPrompt(prompt: Prompt): void {
-
-    this.prompts.push(prompt);
-
-  }
-
-  addEffect(effect: Effect): void {
-
-    this.effects.push(effect);
-
-  }
-
-  addAsset(asset: Asset): void {
-
-    this.assets.push(asset);
-
-  }
-
-  addCameraBehavior(
-
-  cameraBehavior: CameraBehavior
-
+  // Input Control
+  configureInputLock(
+    duration: number,
+    fastForwardEnabled: boolean = true,
+    fastForwardMultiplier: number = 2.0
   ): void {
+    this.inputLocked = true;
+    this.inputLockDuration = duration;
+    this.fastForwardEnabled = fastForwardEnabled;
+    this.fastForwardMultiplier = fastForwardMultiplier;
+  }
 
-  this.cameraBehaviors.push(cameraBehavior);
+  // Zoom
+  addZoomRegion(zoomRegion: ZoomRegion): void {
+    this.zoomRegions.push(zoomRegion);
+  }
 
+  // Audio
+  addAudioCue(audioCue: AudioCue): void {
+    this.audioCues.push(audioCue);
+  }
+
+  // Interaction
+  addPrompt(prompt: Prompt): void {
+    this.prompts.push(prompt);
+  }
+
+  // Effects
+  addEffect(effect: Effect): void {
+    this.effects.push(effect);
+  }
+
+  // Assets
+  addAsset(asset: Asset): void {
+    this.assets.push(asset);
+  }
+
+  // Camera
+  addCameraBehavior(
+    cameraBehavior: CameraBehavior
+  ): void {
+    this.cameraBehaviors.push(cameraBehavior);
   }
 
   addCameraFocalPoint(
-
-  cameraFocalPoint: CameraFocalPoint
-
+    cameraFocalPoint: CameraFocalPoint
   ): void {
-
-  this.cameraFocalPoints.push(
-
-    cameraFocalPoint
-
-  );
-
+    this.cameraFocalPoints.push(cameraFocalPoint);
   }
 
-  addCameraPath(cameraPath: CameraPath): void {
-
-  this.cameraPaths.push(cameraPath);
-
+  addCameraPath(
+    cameraPath: CameraPath
+  ): void {
+    this.cameraPaths.push(cameraPath);
   }
 
-  addCameraEvent(cameraEvent: CameraEvent): void {
-
-  this.cameraEvents.push(cameraEvent);
-
+  addCameraEvent(
+    cameraEvent: CameraEvent
+  ): void {
+    this.cameraEvents.push(cameraEvent);
   }
 
-  enableAutoAdvance(delay: number, prompt: Prompt): void {
-  this.autoAdvanceEnabled = true;
-  this.autoAdvanceDelay = delay;
-  this.autoAdvancePrompt = prompt;
+  // Auto Advance
+  enableAutoAdvance(
+    delay: number,
+    prompt: Prompt
+  ): void {
+    this.autoAdvanceEnabled = true;
+    this.autoAdvanceDelay = delay;
+    this.autoAdvancePrompt = prompt;
   }
 
- enter(): void {
+  // Lifecycle
+  enter(): void {
+    console.log(`Entering ${this.id}`);
 
-  console.log(`Entering ${this.id}`);
-
-  for (const audioCue of this.audioCues) {
-
-    console.log(
-
-      `Starting audio: ${audioCue.file}`
-
-    );
-
-  }
-
-}
-
-exit(): void {
-
-  console.log(`Exiting ${this.id}`);
-
-  for (const audioCue of this.audioCues) {
-
-    if (!audioCue.persistsAcrossStates) {
-
+    for (const audioCue of this.audioCues) {
       console.log(
-
-        `Stopping audio: ${audioCue.file}`
-
+        `Starting audio: ${audioCue.file}`
       );
-
     }
-
   }
 
-}
-  
+  exit(): void {
+    console.log(`Exiting ${this.id}`);
+
+    for (const audioCue of this.audioCues) {
+      if (!audioCue.persistsAcrossStates) {
+        console.log(
+          `Stopping audio: ${audioCue.file}`
+        );
+      }
+    }
+  }
 }
