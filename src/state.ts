@@ -7,6 +7,7 @@ import { CameraBehavior } from "./cameraBehavior.js";
 import { CameraFocalPoint } from "./cameraFocalPoint.js";
 import { CameraPath } from "./cameraPath.js";
 import { CameraEvent } from "./cameraEvent.js";
+import { StatePhase } from "./statePhase.js";
 
 export class State {
 
@@ -14,6 +15,7 @@ export class State {
   id: string;
   image: string;
   dialogue: string;
+  currentPhase: StatePhase;
 
   // Zoom
   zoomEnabled: boolean;
@@ -61,6 +63,7 @@ export class State {
     this.id = id;
     this.image = image;
     this.dialogue = dialogue;
+    this.currentPhase = StatePhase.EXITED;
 
     // Zoom
     this.zoomEnabled = zoomEnabled;
@@ -170,24 +173,28 @@ export class State {
 
   // Lifecycle
   enter(): void {
-    console.log(`Entering ${this.id}`);
+  this.currentPhase = StatePhase.ENTERING;
 
-    for (const audioCue of this.audioCues) {
-      console.log(
-        `Starting audio: ${audioCue.file}`
-      );
-    }
+  console.log(`Entering ${this.id}`);
+
+  for (const audioCue of this.audioCues) {
+    console.log(`Starting audio: ${audioCue.file}`);
   }
+
+  this.currentPhase = StatePhase.ACTIVE;
+}
 
   exit(): void {
-    console.log(`Exiting ${this.id}`);
+  this.currentPhase = StatePhase.EXITING;
 
-    for (const audioCue of this.audioCues) {
-      if (!audioCue.persistsAcrossStates) {
-        console.log(
-          `Stopping audio: ${audioCue.file}`
-        );
-      }
+  console.log(`Exiting ${this.id}`);
+
+  for (const audioCue of this.audioCues) {
+    if (!audioCue.persistsAcrossStates) {
+      console.log(`Stopping audio: ${audioCue.file}`);
     }
   }
+
+  this.currentPhase = StatePhase.EXITED;
+}
 }
