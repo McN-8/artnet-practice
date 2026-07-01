@@ -14,6 +14,9 @@ export class Engine {
   // Asset Cache
   assetCache: AssetCache;
 
+  // Fast Forward
+  fastForwardActive: boolean;
+
   constructor(
     initialState: State,
     states: State[],
@@ -25,6 +28,7 @@ export class Engine {
     this.preloadBackwardSpan = preloadBackwardSpan;
     this.preloadForwardSpan = preloadForwardSpan;
     this.assetCache = new AssetCache();
+    this.fastForwardActive = false;
   }
 
   // Asset Preloading
@@ -82,6 +86,17 @@ export class Engine {
         this.assetCache.unloadAsset(asset.file);
       }
     }
+  }
+
+  // Fast Forward
+  enableFastForward(): void {
+    this.fastForwardActive = true;
+    console.log("Fast forward enabled.");
+  }
+
+  disableFastForward(): void {
+    this.fastForwardActive = false;
+    console.log("Fast forward disabled.");
   }
 
   // Auto Advance
