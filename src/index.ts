@@ -120,6 +120,7 @@ state1.addCameraFocalPoint(onekusFocus);
 state1.addCameraFocalPoint(boyFocus);
 state1.addCameraPath(canopyToBoyPath);
 state1.addCameraEvent(revealBoyEvent);
+state1.activateAudioLayer("forest_base");
 
 // Connect state 2
 state2.addAsset(state2Image);
@@ -134,7 +135,7 @@ chapter1.addState(state2);
 story.addChapter(chapter1);
 
 // Engine setup
-const engine = new Engine(state1, [state1, state2]);
+const engine = new Engine(state1, [state1, state2], audioStack);
 
 // Diagnostics
 story.describe();
@@ -161,8 +162,9 @@ console.log(`Audio stack has ${audioStack.layers.length} layer.`);
 
 // Runtime test
 console.log(`Current state is ${engine.currentState.id}`);
-
-audioStack.activateLayer("forest_base");
+  for (const layerId of state1.audioLayersToActivate) {
+  audioStack.activateLayer(layerId);
+}
 
 engine.preloadNearbyStates(0);
 engine.unloadDistantStateAssets(0);

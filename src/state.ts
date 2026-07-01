@@ -24,6 +24,8 @@ export class State {
 
   // Audio
   audioCues: AudioCue[];
+  audioLayersToActivate: string[];
+  audioLayersToDeactivate: string[];
 
   // Interaction
   prompts: Prompt[];
@@ -72,6 +74,8 @@ export class State {
 
     // Audio
     this.audioCues = [];
+    this.audioLayersToActivate = [];
+    this.audioLayersToDeactivate = [];
 
     // Interaction
     this.prompts = [];
@@ -119,6 +123,12 @@ export class State {
   // Audio
   addAudioCue(audioCue: AudioCue): void {
     this.audioCues.push(audioCue);
+  }
+  activateAudioLayer(layerId: string): void {
+    this.audioLayersToActivate.push(layerId);
+  }
+  deactivateAudioLayer(layerId: string): void {
+    this.audioLayersToDeactivate.push(layerId);
   }
 
   // Interaction

@@ -1,6 +1,7 @@
 import { State } from "./state.js";
 import { Prompt } from "./prompt.js";
 import { AssetCache } from "./assetCache.js";
+import { AudioStack } from "./audioStack.js";
 
 export class Engine {
   // Runtime State
@@ -14,17 +15,22 @@ export class Engine {
   // Asset Cache
   assetCache: AssetCache;
 
+  // Audio Stack
+  audioStack: AudioStack;
+
   // Fast Forward
   fastForwardActive: boolean;
 
   constructor(
     initialState: State,
     states: State[],
+    audioStack: AudioStack,
     preloadBackwardSpan: number = 1,
     preloadForwardSpan: number = 2
   ) {
     this.currentState = initialState;
     this.states = states;
+    this.audioStack = audioStack;
     this.preloadBackwardSpan = preloadBackwardSpan;
     this.preloadForwardSpan = preloadForwardSpan;
     this.assetCache = new AssetCache();
@@ -166,5 +172,12 @@ export class Engine {
     this.currentState = destinationState;
 
     this.currentState.enter();
+    for (const layerId of this.currentState.audioLayersToActivate) {
+        this.audioStack.activateLayer(layerId);
+    }
+
+    for (const layerId of this.currentState.audioLayersToDeactivate) {
+        this.audioStack.deactivateLayer(layerId);
+    }
   }
 }
