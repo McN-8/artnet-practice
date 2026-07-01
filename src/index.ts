@@ -114,6 +114,7 @@ const goBackward = new Prompt(InputType.TAP_LEFT, backwardTransition);
 state1.addAudioCue(forestAmbience);
 state1.addEffect(leafDrift);
 state1.addPrompt(goForward);
+state1.enableAutoAdvance(2000, goForward);
 state1.addCameraBehavior(canopyPan);
 state1.addCameraFocalPoint(onekusFocus);
 state1.addCameraFocalPoint(boyFocus);
@@ -165,7 +166,9 @@ audioStack.activateLayer("forest_base");
 
 engine.preloadNearbyStates(0);
 engine.unloadDistantStateAssets(0);
-engine.executePrompt(goForward);
 
-console.log(`Current state is now ${engine.currentState.id}`);
-console.log(`${state1.id} auto advance enabled: ${state1.autoAdvanceEnabled}`);
+engine.scheduleAutoAdvance();
+
+setTimeout(() => {
+  console.log(`Current state is now ${engine.currentState.id}`);
+}, 2500);

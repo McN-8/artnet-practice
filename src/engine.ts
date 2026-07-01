@@ -110,6 +110,30 @@ export class Engine {
     }
   }
 }
+
+scheduleAutoAdvance(): void {
+  if (!this.currentState.autoAdvanceEnabled) {
+    console.log(`Auto advance disabled for ${this.currentState.id}`);
+    return;
+  }
+
+  if (!this.currentState.autoAdvancePrompt) {
+    console.log(`Auto advance prompt missing for ${this.currentState.id}`);
+    return;
+  }
+
+  console.log(
+    `Auto advancing from ${this.currentState.id} in ${this.currentState.autoAdvanceDelay}ms.`
+  );
+
+  setTimeout(() => {
+    if (!this.currentState.autoAdvancePrompt) {
+      return;
+    }
+
+    this.executePrompt(this.currentState.autoAdvancePrompt);
+  }, this.currentState.autoAdvanceDelay);
+}
   
   executePrompt(prompt: Prompt): void {
 
@@ -138,6 +162,8 @@ export class Engine {
       `Triggered audio cues: ${prompt.transition.triggeredAudioCues.length}`
 
     );
+
+    
 
     this.preloadStateAssets(destinationState);
 
