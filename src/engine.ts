@@ -105,6 +105,17 @@ export class Engine {
     console.log("Fast forward disabled.");
   }
 
+  // Audio Layers
+  applyAudioLayerRules(state: State): void {
+  for (const layerId of state.audioLayersToActivate) {
+    this.audioStack.activateLayer(layerId);
+  }
+
+  for (const layerId of state.audioLayersToDeactivate) {
+    this.audioStack.deactivateLayer(layerId);
+  }
+}
+
   // Auto Advance
   scheduleAutoAdvance(): void {
   if (!this.currentState.autoAdvanceEnabled) {
@@ -172,12 +183,6 @@ export class Engine {
     this.currentState = destinationState;
 
     this.currentState.enter();
-    for (const layerId of this.currentState.audioLayersToActivate) {
-        this.audioStack.activateLayer(layerId);
-    }
-
-    for (const layerId of this.currentState.audioLayersToDeactivate) {
-        this.audioStack.deactivateLayer(layerId);
-    }
+    this.applyAudioLayerRules(this.currentState);
   }
 }

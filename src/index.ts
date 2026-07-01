@@ -162,9 +162,7 @@ console.log(`Audio stack has ${audioStack.layers.length} layer.`);
 
 // Runtime test
 console.log(`Current state is ${engine.currentState.id}`);
-  for (const layerId of state1.audioLayersToActivate) {
-  audioStack.activateLayer(layerId);
-}
+ engine.applyAudioLayerRules(state1);
 
 engine.preloadNearbyStates(0);
 engine.unloadDistantStateAssets(0);
