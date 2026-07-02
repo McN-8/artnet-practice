@@ -133,6 +133,12 @@ export class Engine {
     );
     break;
 
+  case "audio":
+    console.log(
+        "Starting audio timeline event."
+  );
+    break;
+
   default:
     console.log(
       `Timeline Event [${event.type}] triggered.`

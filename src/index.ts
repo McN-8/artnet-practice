@@ -120,6 +120,14 @@ forestTimeline.addEvent(
   )
 );
 
+forestTimeline.addEvent(
+  new TimelineEvent(
+    3500,
+    "audio",
+    forestAmbience
+  )
+);
+
 // Transitions and prompts
 const zoomEffect = new TransitionEffect(
   "zoomInspect",
