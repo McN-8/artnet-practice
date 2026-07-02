@@ -116,6 +116,17 @@ export class Engine {
   }
 }
 
+  // Timeline
+  playTimeline(state: State): void {
+  for (const event of state.timeline.events) {
+    setTimeout(() => {
+      console.log(
+        `Timeline Event: ${event.description}`
+      );
+    }, event.timestamp);
+  }
+    }
+
   // Auto Advance
   scheduleAutoAdvance(): void {
   if (!this.currentState.autoAdvanceEnabled) {
@@ -157,6 +168,7 @@ export class Engine {
     }
     finalizeTransition(): void {
   this.applyAudioLayerRules(this.currentState);
+   this.playTimeline(this.currentState);
     }
 
   // Prompt Execution
