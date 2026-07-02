@@ -152,6 +152,13 @@ export class Engine {
   }, effectiveDelay);
 }
 
+  prepareTransition(destinationState: State): void {
+  this.preloadStateAssets(destinationState);
+    }
+    finalizeTransition(): void {
+  this.applyAudioLayerRules(this.currentState);
+    }
+
   // Prompt Execution
   executePrompt(prompt: Prompt): void {
     if (this.currentState.inputLocked) {
@@ -176,13 +183,14 @@ export class Engine {
       `Triggered audio cues: ${prompt.transition.triggeredAudioCues.length}`
     );
 
-    this.preloadStateAssets(destinationState);
+    this.prepareTransition(destinationState);
 
     this.currentState.exit();
 
     this.currentState = destinationState;
 
     this.currentState.enter();
-    this.applyAudioLayerRules(this.currentState);
-  }
+
+    this.finalizeTransition();
+    }
 }
