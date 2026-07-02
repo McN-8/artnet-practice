@@ -38,23 +38,6 @@ const state2 = new State(
   true
 );
 
-// Timeline
-const forestTimeline = new Timeline();
-
-forestTimeline.addEvent(
-  new TimelineEvent(
-    1000,
-    "Camera begins panning downward."
-  )
-);
-
-forestTimeline.addEvent(
-  new TimelineEvent(
-    2500,
-    "Leaves begin drifting through the canopy."
-  )
-);
-
 // Assets
 const state2Image = new Asset("extended_branch.png", "image");
 const state2Ambience = new Asset("forest_ambience.mp3", "audio");
@@ -117,6 +100,25 @@ const canopyToBoyPath = new CameraPath(
 );
 
 const revealBoyEvent = new CameraEvent(1500, canopyToBoyPath);
+
+// Timeline
+const forestTimeline = new Timeline();
+
+forestTimeline.addEvent(
+  new TimelineEvent(
+    1000,
+    "camera",
+    canopyToBoyPath
+  )
+);
+
+forestTimeline.addEvent(
+  new TimelineEvent(
+    2500,
+    "effect",
+    leafDrift
+  )
+);
 
 // Transitions and prompts
 const zoomEffect = new TransitionEffect(

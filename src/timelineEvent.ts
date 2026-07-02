@@ -1,12 +1,15 @@
 export class TimelineEvent {
   timestamp: number;
-  description: string;
+  type: string;
+  payload: unknown;
 
   constructor(
     timestamp: number,
-    description: string
+    type: string,
+    payload: unknown
   ) {
     this.timestamp = timestamp;
-    this.description = description;
+    this.type = type;
+    this.payload = payload;
   }
 }

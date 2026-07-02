@@ -113,15 +113,15 @@ export class Engine {
 
   for (const layerId of state.audioLayersToDeactivate) {
     this.audioStack.deactivateLayer(layerId);
-  }
-}
+    }
+    }
 
   // Timeline
   playTimeline(state: State): void {
   for (const event of state.timeline.events) {
     setTimeout(() => {
       console.log(
-        `Timeline Event: ${event.description}`
+        `Timeline Event [${event.type}] triggered.`
       );
     }, event.timestamp);
   }
