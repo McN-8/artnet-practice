@@ -120,9 +120,24 @@ export class Engine {
   playTimeline(state: State): void {
   for (const event of state.timeline.events) {
     setTimeout(() => {
-      console.log(
-        `Timeline Event [${event.type}] triggered.`
-      );
+      switch (event.type) {
+  case "camera":
+    console.log(
+      `Starting camera event.`
+    );
+    break;
+
+  case "effect":
+    console.log(
+      `Starting effect event.`
+    );
+    break;
+
+  default:
+    console.log(
+      `Timeline Event [${event.type}] triggered.`
+    );
+}
     }, event.timestamp);
   }
     }
