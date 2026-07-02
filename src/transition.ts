@@ -1,12 +1,11 @@
 import { AudioCue } from "./audioCue.js";
+import { TransitionEffect } from "./transitionEffect.js";
 
 export class Transition {
 
   destinationStateId: string;
 
-  effectType: string;
-
-  duration: number;
+  effect: TransitionEffect;
 
   triggeredAudioCues: AudioCue[];
 
@@ -14,17 +13,13 @@ export class Transition {
 
     destinationStateId: string,
 
-    effectType: string,
-
-    duration: number
+    effect: TransitionEffect,
 
   ) {
 
     this.destinationStateId = destinationStateId;
 
-    this.effectType = effectType;
-
-    this.duration = duration;
+    this.effect = effect;
 
     this.triggeredAudioCues = [];
 

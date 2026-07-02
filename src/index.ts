@@ -15,6 +15,7 @@ import { CameraPath } from "./cameraPath.js";
 import { CameraEvent } from "./cameraEvent.js";
 import { AudioLayer } from "./audioLayer.js";
 import { AudioStack } from "./audioStack.js";
+import { TransitionEffect } from "./transitionEffect.js";
 
 // Story setup
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
@@ -99,15 +100,45 @@ const canopyToBoyPath = new CameraPath(
 const revealBoyEvent = new CameraEvent(1500, canopyToBoyPath);
 
 // Transitions and prompts
-const zoomTransition = new Transition("state-2", "zoomInspect", 300);
+const zoomEffect = new TransitionEffect(
+  "zoomInspect",
+  300
+);
+
+const zoomTransition = new Transition(
+  "state-2",
+  zoomEffect
+);
+
 const inspectDetail = new Prompt(InputType.PINCH_ZOOM, zoomTransition);
 
-const forwardTransition = new Transition("state-2", "fadeIn", 800);
-forwardTransition.addTriggeredAudioCue(punchSound);
+const fadeEffect = new TransitionEffect(
+  "fadeIn",
+  800,
+  true,
+  false
+);
+
+const forwardTransition = new Transition(
+  "state-2",
+  fadeEffect
+);
 
 const goForward = new Prompt(InputType.TAP_RIGHT, forwardTransition);
 
-const backwardTransition = new Transition("state-1", "fadeOut", 500);
+const fadeOutEffect = new TransitionEffect(
+
+  "fadeOut",
+
+  500
+
+);
+
+const backwardTransition = new Transition(
+  "state-1",
+  fadeOutEffect
+);
+
 const goBackward = new Prompt(InputType.TAP_LEFT, backwardTransition);
 
 // Connect state 1

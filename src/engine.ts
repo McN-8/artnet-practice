@@ -176,7 +176,7 @@ export class Engine {
     }
 
     console.log(
-      `Executing ${prompt.inputType} transition with ${prompt.transition.effectType}.`
+      `Executing ${prompt.inputType} transition with ${prompt.transition.effect.type}.`
     );
 
     console.log(
