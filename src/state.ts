@@ -8,6 +8,7 @@ import { CameraFocalPoint } from "./cameraFocalPoint.js";
 import { CameraPath } from "./cameraPath.js";
 import { CameraEvent } from "./cameraEvent.js";
 import { StatePhase } from "./statePhase.js";
+import { Timeline } from "./timeline.js";
 
 export class State {
 
@@ -16,6 +17,7 @@ export class State {
   image: string;
   dialogue: string;
   currentPhase: StatePhase;
+  timeline: Timeline;
 
   // Zoom
   zoomEnabled: boolean;
@@ -66,6 +68,7 @@ export class State {
     this.image = image;
     this.dialogue = dialogue;
     this.currentPhase = StatePhase.EXITED;
+    this.timeline = new Timeline();
 
     // Zoom
     this.zoomEnabled = zoomEnabled;
@@ -115,6 +118,11 @@ export class State {
     this.fastForwardMultiplier = fastForwardMultiplier;
   }
 
+  // Timeline
+  setTimeline(timeline: Timeline): void {
+  this.timeline = timeline;
+  }
+  
   // Zoom
   addZoomRegion(zoomRegion: ZoomRegion): void {
     this.zoomRegions.push(zoomRegion);

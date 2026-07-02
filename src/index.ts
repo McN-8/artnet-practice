@@ -16,6 +16,8 @@ import { CameraEvent } from "./cameraEvent.js";
 import { AudioLayer } from "./audioLayer.js";
 import { AudioStack } from "./audioStack.js";
 import { TransitionEffect } from "./transitionEffect.js";
+import { Timeline } from "./timeline.js";
+import { TimelineEvent } from "./timelineEvent.js";
 
 // Story setup
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
@@ -34,6 +36,23 @@ const state2 = new State(
   "A branch slowly lowered a piece of fruit toward him.",
   true,
   true
+);
+
+// Timeline
+const forestTimeline = new Timeline();
+
+forestTimeline.addEvent(
+  new TimelineEvent(
+    1000,
+    "Camera begins panning downward."
+  )
+);
+
+forestTimeline.addEvent(
+  new TimelineEvent(
+    2500,
+    "Leaves begin drifting through the canopy."
+  )
 );
 
 // Assets
@@ -146,6 +165,7 @@ const goBackward = new Prompt(InputType.TAP_LEFT, backwardTransition);
 // Connect state 1
 state1.addAudioCue(forestAmbience);
 state1.addEffect(leafDrift);
+state1.setTimeline(forestTimeline);
 state1.addPrompt(goForward);
 // state1.enableAutoAdvance(2000, goForward);
 state1.addCameraBehavior(canopyPan);
@@ -175,6 +195,9 @@ story.describe();
 
 console.log(`${state1.id} has ${state1.prompts.length} prompt.`);
 console.log(`${state2.id} has ${state2.prompts.length} prompt.`);
+console.log(
+  `${state1.id} timeline events: ${state1.timeline.events.length}`
+);
 console.log(`${state1.id} has ${state1.effects.length} effect.`);
 console.log(
   `${state2.id} zoom enabled: ${state2.zoomEnabled}, interactive: ${state2.zoomInteractive}.`
