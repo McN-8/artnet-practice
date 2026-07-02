@@ -124,6 +124,8 @@ const forwardTransition = new Transition(
   fadeEffect
 );
 
+forwardTransition.addTriggeredAudioCue(punchSound);
+
 const goForward = new Prompt(InputType.TAP_RIGHT, forwardTransition);
 
 const fadeOutEffect = new TransitionEffect(

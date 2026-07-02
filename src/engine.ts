@@ -179,6 +179,19 @@ export class Engine {
       `Executing ${prompt.inputType} transition with ${prompt.transition.effect.type}.`
     );
 
+    if (prompt.transition.effect.locksInput) {
+      console.log("Transition locking input.");
+    }
+
+    if (
+  this.fastForwardActive &&
+  !prompt.transition.effect.allowFastForward
+    ) {
+  console.log(
+    "Fast forward blocked by transition."
+       );
+    }
+
     console.log(
       `Triggered audio cues: ${prompt.transition.triggeredAudioCues.length}`
     );
