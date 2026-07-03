@@ -19,6 +19,8 @@ import { TransitionEffect } from "./transitionEffect.js";
 import { Timeline } from "./timeline.js";
 import { TimelineEvent } from "./timelineEvent.js";
 import { OverlayAsset } from "./overlayAsset.js";
+import { PanelGroup } from "./panelGroup.js";
+import { PanelReveal } from "./panelReveal.js";
 
 // Story setup
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
@@ -101,6 +103,26 @@ const canopyToBoyPath = new CameraPath(
 );
 
 const revealBoyEvent = new CameraEvent(1500, canopyToBoyPath);
+
+// Panel Groups
+
+const forestOpening = new PanelGroup(
+  "forest-opening"
+);
+
+forestOpening.addReveal(
+  new PanelReveal("panel-2", 0)
+);
+
+forestOpening.addReveal(
+  new PanelReveal("panel-4", 1000)
+);
+
+forestOpening.addReveal(
+  new PanelReveal("panel-3", 1800)
+);
+
+state1.addPanelGroup(forestOpening);
 
 // Overlay
 const onekusJumpOverlay = new OverlayAsset(
@@ -244,6 +266,14 @@ console.log(
   `Camera path speed multiplier: ${canopyToBoyPath.speedMultiplier}`
 );
 console.log(`Audio stack has ${audioStack.layers.length} layer.`);
+
+console.log(
+  `${state1.id} has ${state1.panelGroups.length} panel group.`
+);
+
+console.log(
+  `Forest opening has ${forestOpening.reveals.length} reveals.`
+);
 
 // Runtime test
 console.log(`Current state is ${engine.currentState.id}`);

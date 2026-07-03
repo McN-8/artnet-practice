@@ -9,6 +9,7 @@ import { CameraPath } from "./cameraPath.js";
 import { CameraEvent } from "./cameraEvent.js";
 import { StatePhase } from "./statePhase.js";
 import { Timeline } from "./timeline.js";
+import { PanelGroup } from "./panelGroup.js";
 
 export class State {
 
@@ -43,6 +44,9 @@ export class State {
   cameraFocalPoints: CameraFocalPoint[];
   cameraPaths: CameraPath[];
   cameraEvents: CameraEvent[];
+
+  // Panel Groups
+  panelGroups: PanelGroup[];
 
   // Auto Advance
   autoAdvanceEnabled: boolean;
@@ -94,6 +98,9 @@ export class State {
     this.cameraFocalPoints = [];
     this.cameraPaths = [];
     this.cameraEvents = [];
+
+    // Panel Groups
+    this.panelGroups = [];
 
     // Auto Advance
     this.autoAdvanceEnabled = false;
@@ -177,6 +184,11 @@ export class State {
     cameraEvent: CameraEvent
   ): void {
     this.cameraEvents.push(cameraEvent);
+  }
+
+  // Panel Groups
+  addPanelGroup(panelGroup: PanelGroup): void {
+    this.panelGroups.push(panelGroup);
   }
 
   // Auto Advance
