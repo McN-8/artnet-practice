@@ -2,6 +2,7 @@ import { State } from "./state.js";
 import { Prompt } from "./prompt.js";
 import { AssetCache } from "./assetCache.js";
 import { AudioStack } from "./audioStack.js";
+import { PanelGroup } from "./panelGroup.js";
 
 export class Engine {
   // Runtime State
@@ -107,104 +108,117 @@ export class Engine {
 
   // Audio Layers
   applyAudioLayerRules(state: State): void {
-  for (const layerId of state.audioLayersToActivate) {
-    this.audioStack.activateLayer(layerId);
-  }
+    for (const layerId of state.audioLayersToActivate) {
+      this.audioStack.activateLayer(layerId);
+    }
 
-  for (const layerId of state.audioLayersToDeactivate) {
-    this.audioStack.deactivateLayer(layerId);
+    for (const layerId of state.audioLayersToDeactivate) {
+      this.audioStack.deactivateLayer(layerId);
     }
-    }
+  }
 
   // Timeline
   playTimeline(state: State): void {
-  for (const event of state.timeline.events) {
-    setTimeout(() => {
-      switch (event.type) {
-    case "camera":
-    console.log(
-        `Starting camera event: ${
-      (event.payload as { id: string }).id
-    }`
-  );
-  break;
+    for (const event of state.timeline.events) {
+      setTimeout(() => {
+        switch (event.type) {
+          case "camera":
+            console.log(
+              `Starting camera event: ${
+                (event.payload as { id: string }).id
+              }`
+            );
+            break;
 
-  case "effect":
-    console.log(
-        `Starting effect event: ${
-      (event.payload as { type: string }).type
-    }`
-  );
-  break;
+          case "effect":
+            console.log(
+              `Starting effect event: ${
+                (event.payload as { type: string }).type
+              }`
+            );
+            break;
 
-  case "audio":
-    console.log(
-        `Starting audio event: ${
-      (event.payload as { file: string }).file
-    }`
-  );
-  break;
+          case "audio":
+            console.log(
+              `Starting audio event: ${
+                (event.payload as { file: string }).file
+              }`
+            );
+            break;
 
-  case "overlay":
-    console.log(
-    `Starting overlay event: ${
-        (event.payload as { asset: string }).asset
-   }`
- );
-  break;
+          case "overlay":
+            console.log(
+              `Starting overlay event: ${
+                (event.payload as { asset: string }).asset
+              }`
+            );
+            break;
 
-  default:
-    console.log(
-      `Timeline Event [${event.type}] triggered.`
-    );
-}
-    }, event.timestamp);
-  }
+          default:
+            console.log(
+              `Timeline Event [${event.type}] triggered.`
+            );
+        }
+      }, event.timestamp);
     }
+  }
+
+  // Panel Groups
+  playPanelGroup(panelGroup: PanelGroup): void {
+    for (const reveal of panelGroup.reveals) {
+      setTimeout(() => {
+        console.log(
+          `Revealing panel ${reveal.panelId}.`
+        );
+      }, reveal.delay);
+    }
+  }
 
   // Auto Advance
   scheduleAutoAdvance(): void {
-  if (!this.currentState.autoAdvanceEnabled) {
-    console.log(`Auto advance disabled for ${this.currentState.id}`);
-    return;
-  }
-
-  if (!this.currentState.autoAdvancePrompt) {
-    console.log(`Auto advance prompt missing for ${this.currentState.id}`);
-    return;
-  }
-
-  let effectiveDelay = this.currentState.autoAdvanceDelay;
-
-  if (
-    this.fastForwardActive &&
-    this.currentState.fastForwardEnabled
-  ) {
-    effectiveDelay =
-      this.currentState.autoAdvanceDelay /
-      this.currentState.fastForwardMultiplier;
-  }
-
-  console.log(
-    `Auto advancing from ${this.currentState.id} in ${effectiveDelay}ms.`
-  );
-
-  setTimeout(() => {
-    if (!this.currentState.autoAdvancePrompt) {
+    if (!this.currentState.autoAdvanceEnabled) {
+      console.log(`Auto advance disabled for ${this.currentState.id}`);
       return;
     }
 
-    this.executePrompt(this.currentState.autoAdvancePrompt);
-  }, effectiveDelay);
-}
+    if (!this.currentState.autoAdvancePrompt) {
+      console.log(`Auto advance prompt missing for ${this.currentState.id}`);
+      return;
+    }
 
+    let effectiveDelay = this.currentState.autoAdvanceDelay;
+
+    if (
+      this.fastForwardActive &&
+      this.currentState.fastForwardEnabled
+    ) {
+      effectiveDelay =
+        this.currentState.autoAdvanceDelay /
+        this.currentState.fastForwardMultiplier;
+    }
+
+    console.log(
+      `Auto advancing from ${this.currentState.id} in ${effectiveDelay}ms.`
+    );
+
+    setTimeout(() => {
+      if (!this.currentState.autoAdvancePrompt) {
+        return;
+      }
+
+      this.executePrompt(this.currentState.autoAdvancePrompt);
+    }, effectiveDelay);
+  }
+
+  // Transition Pipeline
   prepareTransition(destinationState: State): void {
-  this.preloadStateAssets(destinationState);
-    }
-    finalizeTransition(): void {
-  this.applyAudioLayerRules(this.currentState);
-   this.playTimeline(this.currentState);
-    }
+    this.preloadStateAssets(destinationState);
+  }
+
+  finalizeTransition(): void {
+    this.applyAudioLayerRules(this.currentState);
+    this.playTimeline(this.currentState);
+  }
 
   // Prompt Execution
   executePrompt(prompt: Prompt): void {
@@ -231,12 +245,12 @@ export class Engine {
     }
 
     if (
-  this.fastForwardActive &&
-  !prompt.transition.effect.allowFastForward
+      this.fastForwardActive &&
+      !prompt.transition.effect.allowFastForward
     ) {
-  console.log(
-    "Fast forward blocked by transition."
-       );
+      console.log(
+        "Fast forward blocked by transition."
+      );
     }
 
     console.log(
@@ -252,5 +266,5 @@ export class Engine {
     this.currentState.enter();
 
     this.finalizeTransition();
-    }
+  }
 }

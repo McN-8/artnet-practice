@@ -105,24 +105,11 @@ const canopyToBoyPath = new CameraPath(
 const revealBoyEvent = new CameraEvent(1500, canopyToBoyPath);
 
 // Panel Groups
+const forestOpening = new PanelGroup("forest-opening");
 
-const forestOpening = new PanelGroup(
-  "forest-opening"
-);
-
-forestOpening.addReveal(
-  new PanelReveal("panel-2", 0)
-);
-
-forestOpening.addReveal(
-  new PanelReveal("panel-4", 1000)
-);
-
-forestOpening.addReveal(
-  new PanelReveal("panel-3", 1800)
-);
-
-state1.addPanelGroup(forestOpening);
+forestOpening.addReveal(new PanelReveal("panel-2", 0));
+forestOpening.addReveal(new PanelReveal("panel-4", 1000));
+forestOpening.addReveal(new PanelReveal("panel-3", 1800));
 
 // Overlay
 const onekusJumpOverlay = new OverlayAsset(
@@ -199,11 +186,8 @@ forwardTransition.addTriggeredAudioCue(punchSound);
 const goForward = new Prompt(InputType.TAP_RIGHT, forwardTransition);
 
 const fadeOutEffect = new TransitionEffect(
-
   "fadeOut",
-
   500
-
 );
 
 const backwardTransition = new Transition(
@@ -218,13 +202,13 @@ state1.addAudioCue(forestAmbience);
 state1.addEffect(leafDrift);
 state1.setTimeline(forestTimeline);
 state1.addPrompt(goForward);
-// state1.enableAutoAdvance(2000, goForward);
 state1.addCameraBehavior(canopyPan);
 state1.addCameraFocalPoint(onekusFocus);
 state1.addCameraFocalPoint(boyFocus);
 state1.addCameraPath(canopyToBoyPath);
 state1.addCameraEvent(revealBoyEvent);
 state1.activateAudioLayer("forest_base");
+state1.addPanelGroup(forestOpening);
 
 // Connect state 2
 state2.addAsset(state2Image);
@@ -246,9 +230,7 @@ story.describe();
 
 console.log(`${state1.id} has ${state1.prompts.length} prompt.`);
 console.log(`${state2.id} has ${state2.prompts.length} prompt.`);
-console.log(
-  `${state1.id} timeline events: ${state1.timeline.events.length}`
-);
+console.log(`${state1.id} timeline events: ${state1.timeline.events.length}`);
 console.log(`${state1.id} has ${state1.effects.length} effect.`);
 console.log(
   `${state2.id} zoom enabled: ${state2.zoomEnabled}, interactive: ${state2.zoomInteractive}.`
@@ -262,23 +244,18 @@ console.log(`${state1.id} has ${state1.cameraBehaviors.length} camera behavior.`
 console.log(`${state1.id} has ${state1.cameraFocalPoints.length} camera focal point.`);
 console.log(`${state1.id} has ${state1.cameraPaths.length} camera path.`);
 console.log(`${state1.id} has ${state1.cameraEvents.length} camera event.`);
+console.log(`${state1.id} has ${state1.panelGroups.length} panel group.`);
+console.log(`Forest opening has ${forestOpening.reveals.length} reveals.`);
 console.log(
   `Camera path speed multiplier: ${canopyToBoyPath.speedMultiplier}`
 );
 console.log(`Audio stack has ${audioStack.layers.length} layer.`);
 
-console.log(
-  `${state1.id} has ${state1.panelGroups.length} panel group.`
-);
-
-console.log(
-  `Forest opening has ${forestOpening.reveals.length} reveals.`
-);
-
 // Runtime test
 console.log(`Current state is ${engine.currentState.id}`);
- engine.applyAudioLayerRules(state1);
- engine.playTimeline(state1);
+
+engine.applyAudioLayerRules(state1);
+engine.playTimeline(state1);
 
 engine.preloadNearbyStates(0);
 engine.unloadDistantStateAssets(0);
