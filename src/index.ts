@@ -18,6 +18,7 @@ import { AudioStack } from "./audioStack.js";
 import { TransitionEffect } from "./transitionEffect.js";
 import { Timeline } from "./timeline.js";
 import { TimelineEvent } from "./timelineEvent.js";
+import { OverlayAsset } from "./overlayAsset.js";
 
 // Story setup
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
@@ -101,6 +102,16 @@ const canopyToBoyPath = new CameraPath(
 
 const revealBoyEvent = new CameraEvent(1500, canopyToBoyPath);
 
+// Overlay
+const onekusJumpOverlay = new OverlayAsset(
+  "onekus-jump",
+  "onekus_jump_sticker.png",
+  "canopy-to-boy",
+  15,
+  800,
+  true
+);
+
 // Timeline
 const forestTimeline = new Timeline();
 
@@ -132,7 +143,7 @@ forestTimeline.addEvent(
   new TimelineEvent(
     4500,
     "overlay",
-    "onekus_jump_sticker.png"
+    onekusJumpOverlay
   )
 );
 

@@ -121,28 +121,36 @@ export class Engine {
   for (const event of state.timeline.events) {
     setTimeout(() => {
       switch (event.type) {
-  case "camera":
+    case "camera":
     console.log(
-      `Starting camera event.`
-    );
-    break;
+        `Starting camera event: ${
+      (event.payload as { id: string }).id
+    }`
+  );
+  break;
 
   case "effect":
     console.log(
-      `Starting effect event.`
-    );
-    break;
+        `Starting effect event: ${
+      (event.payload as { type: string }).type
+    }`
+  );
+  break;
 
   case "audio":
     console.log(
-        "Starting audio timeline event."
+        `Starting audio event: ${
+      (event.payload as { file: string }).file
+    }`
   );
-    break;
+  break;
 
   case "overlay":
     console.log(
-        "Starting overlay timeline event."
-  );
+    `Starting overlay event: ${
+        (event.payload as { asset: string }).asset
+   }`
+ );
   break;
 
   default:
