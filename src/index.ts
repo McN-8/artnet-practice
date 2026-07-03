@@ -126,6 +126,14 @@ const forestTimeline = new Timeline();
 
 forestTimeline.addEvent(
   new TimelineEvent(
+    500,
+    "panelGroup",
+    forestOpening
+  )
+);
+
+forestTimeline.addEvent(
+  new TimelineEvent(
     1000,
     "camera",
     canopyToBoyPath

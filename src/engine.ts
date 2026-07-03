@@ -154,6 +154,18 @@ export class Engine {
             );
             break;
 
+          case "panelGroup":
+            console.log(
+              `Starting panel group event: ${
+                (event.payload as { id: string }).id
+              }`
+            );
+
+            this.playPanelGroup(
+                event.payload as PanelGroup
+            );
+            break;
+
           default:
             console.log(
               `Timeline Event [${event.type}] triggered.`
