@@ -139,6 +139,12 @@ export class Engine {
   );
     break;
 
+  case "overlay":
+    console.log(
+        "Starting overlay timeline event."
+  );
+  break;
+
   default:
     console.log(
       `Timeline Event [${event.type}] triggered.`

@@ -128,6 +128,14 @@ forestTimeline.addEvent(
   )
 );
 
+forestTimeline.addEvent(
+  new TimelineEvent(
+    4500,
+    "overlay",
+    "onekus_jump_sticker.png"
+  )
+);
+
 // Transitions and prompts
 const zoomEffect = new TransitionEffect(
   "zoomInspect",
