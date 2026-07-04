@@ -16,6 +16,8 @@ export class Engine {
   // Asset Cache
   assetCache: AssetCache;
 
+  activeTimers: ReturnType<typeof setTimeout>[];
+
   // Audio Stack
   audioStack: AudioStack;
 
@@ -35,6 +37,7 @@ export class Engine {
     this.preloadBackwardSpan = preloadBackwardSpan;
     this.preloadForwardSpan = preloadForwardSpan;
     this.assetCache = new AssetCache();
+    this.activeTimers = [];
     this.fastForwardActive = false;
   }
 
@@ -120,7 +123,7 @@ export class Engine {
   // Timeline
   playTimeline(state: State): void {
     for (const event of state.timeline.events) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         switch (event.type) {
           case "camera":
             console.log(
@@ -172,19 +175,37 @@ export class Engine {
             );
         }
       }, event.timestamp);
+      this.registerTimer(timer);
     }
   }
 
   // Panel Groups
   playPanelGroup(panelGroup: PanelGroup): void {
     for (const reveal of panelGroup.reveals) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         console.log(
           `Revealing panel ${reveal.panelId}.`
         );
       }, reveal.delay);
+      this.registerTimer(timer);
     }
   }
+
+  // Active Timer
+
+  registerTimer(timer: ReturnType<typeof setTimeout>): void {
+  this.activeTimers.push(timer);
+ }
+
+    clearActiveTimers(): void {
+  for (const timer of this.activeTimers) {
+    clearTimeout(timer);
+  }
+
+  this.activeTimers = [];
+
+  console.log("Cleared active timers.");
+ }
 
   // Auto Advance
   scheduleAutoAdvance(): void {
@@ -270,6 +291,8 @@ export class Engine {
     );
 
     this.prepareTransition(destinationState);
+
+    this.clearActiveTimers();
 
     this.currentState.exit();
 
