@@ -175,7 +175,7 @@ const zoomTransition = new Transition(
   zoomEffect
 );
 
-const inspectDetail = new Prompt(InputType.PINCH_ZOOM, zoomTransition);
+const inspectDetail = new Prompt(InputType.PINCH_ZOOM, zoomTransition, "clipboard-clue");
 
 const fadeEffect = new TransitionEffect(
   "fadeIn",
@@ -269,4 +269,4 @@ const currentStateIndex = engine.getCurrentStateIndex();
 engine.preloadNearbyStates(currentStateIndex);
 engine.unloadDistantStateAssets(currentStateIndex);
 
-// engine.executePrompt(goForward);
+engine.executePrompt(goForward);
