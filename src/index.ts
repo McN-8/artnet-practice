@@ -21,6 +21,7 @@ import { TimelineEvent } from "./timelineEvent.js";
 import { OverlayAsset } from "./overlayAsset.js";
 import { PanelGroup } from "./panelGroup.js";
 import { PanelReveal } from "./panelReveal.js";
+import { StorySerializer } from "./storySerializer.js";
 
 // Story setup
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
@@ -290,6 +291,12 @@ console.log(
   `Camera path speed multiplier: ${canopyToBoyPath.speedMultiplier}`
 );
 console.log(`Audio stack has ${audioStack.layers.length} layer.`);
+
+// Serializer Test
+const storyJSON = StorySerializer.toJSON(story);
+
+console.log("Serialized story:");
+console.log(storyJSON);
 
 // Runtime test
 console.log(`Current state is ${engine.currentState.id}`);
