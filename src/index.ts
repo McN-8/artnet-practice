@@ -1,3 +1,4 @@
+import { ResourceRegistry } from "./resourceRegistry.js";
 import { Story } from "./story.js";
 import { Chapter } from "./chapter.js";
 import { State } from "./state.js";
@@ -84,6 +85,11 @@ const leafDrift = new Effect(
   "onEnterState",
   5000
 );
+
+// Resource Registry
+const effectRegistry = new ResourceRegistry<Effect>();
+
+effectRegistry.register(leafDrift);
 
 // Zoom
 const hiddenClipboardText = new ZoomRegion(
@@ -298,6 +304,16 @@ console.log(
   `Camera path speed multiplier: ${canopyToBoyPath.speedMultiplier}`
 );
 console.log(`Audio stack has ${audioStack.layers.length} layer.`);
+
+console.log(
+  "Registered effects:",
+  effectRegistry.getAll().length
+);
+
+console.log(
+  "Found effect:",
+  effectRegistry.get("leaf-drift")?.type
+);
 
 // Serializer Test
 const storyJSON = StorySerializer.toJSON(story);
