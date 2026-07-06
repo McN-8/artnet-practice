@@ -298,8 +298,6 @@ export class Engine {
 
     this.prepareTransition(destinationState);
 
-    this.clearActiveTimers();
-
     this.currentState.exit();
 
     this.currentState = destinationState;
