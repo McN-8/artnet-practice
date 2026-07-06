@@ -269,4 +269,4 @@ const currentStateIndex = engine.getCurrentStateIndex();
 engine.preloadNearbyStates(currentStateIndex);
 engine.unloadDistantStateAssets(currentStateIndex);
 
-engine.executePrompt(goForward);
+// engine.executePrompt(goForward);

@@ -148,6 +148,22 @@ export class Engine {
   );
  }
 
+  // Overlay Effect Execution
+  runOverlay(
+  overlay: {
+    id: string;
+    asset: string;
+    pathId: string;
+    rotation: number;
+    duration: number;
+    followPath: boolean;
+  }
+ ): void {
+  console.log(
+    `Displaying overlay ${overlay.asset} on path ${overlay.pathId} with rotation ${overlay.rotation}° for ${overlay.duration}ms.`
+  );
+ }
+
   // Timeline
   playTimeline(state: State): void {
     for (const event of state.timeline.events) {
@@ -175,11 +191,16 @@ export class Engine {
             break;
 
           case "overlay":
-            console.log(
-              `Starting overlay event: ${
-                (event.payload as { asset: string }).asset
-              }`
-            );
+            this.runOverlay(
+                event.payload as {
+                    id: string;
+                    asset: string;
+                    pathId: string;
+                    rotation: number;
+                    duration: number;
+                    followPath: boolean;
+                  }
+                 );
             break;
 
           case "panelGroup":
