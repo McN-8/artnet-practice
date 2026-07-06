@@ -305,8 +305,29 @@ export class Engine {
   this.startState(this.currentState);
   }
 
+  // Object Interaction
+  matchesTarget(
+  prompt: Prompt,
+  targetId?: string
+ ): boolean {
+  if (!prompt.targetId) {
+    return true;
+  }
+
+  return prompt.targetId === targetId;
+ }
+
   // Prompt Execution
-  executePrompt(prompt: Prompt): void {
+  executePrompt(
+  prompt: Prompt,
+  targetId?: string
+    ): void {
+    if (!this.matchesTarget(prompt, targetId)) {
+        console.log(
+        `Prompt target mismatch.`
+        );
+        return;
+    }
     if (this.currentState.inputLocked) {
       console.log(`Input is locked for ${this.currentState.id}. Prompt ignored.`);
       return;
