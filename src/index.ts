@@ -107,9 +107,41 @@ const revealBoyEvent = new CameraEvent(1500, canopyToBoyPath);
 // Panel Groups
 const forestOpening = new PanelGroup("forest-opening");
 
-forestOpening.addReveal(new PanelReveal("panel-2", 0));
-forestOpening.addReveal(new PanelReveal("panel-4", 1000));
-forestOpening.addReveal(new PanelReveal("panel-3", 1800));
+forestOpening.addReveal(
+  new PanelReveal(
+    "panel-2",
+    0,
+    0,
+    0,
+    800,
+    450,
+    0
+  )
+);
+
+forestOpening.addReveal(
+  new PanelReveal(
+    "panel-4",
+    1000,
+    850,
+    100,
+    350,
+    250,
+    -5
+  )
+);
+
+forestOpening.addReveal(
+  new PanelReveal(
+    "panel-3",
+    1800,
+    300,
+    520,
+    700,
+    350,
+    0
+  )
+);
 
 // Overlay
 const onekusJumpOverlay = new OverlayAsset(
