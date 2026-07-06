@@ -2,6 +2,12 @@ import { Story } from "./story.js";
 
 export class StorySerializer {
   static toJSON(story: Story): string {
-    return JSON.stringify(story, null, 2);
+    const exportData = {
+      title: story.title,
+      creator: story.creator,
+      chapters: story.chapters
+    };
+
+    return JSON.stringify(exportData, null, 2);
   }
 }
