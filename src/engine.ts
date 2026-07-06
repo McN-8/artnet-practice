@@ -140,6 +140,14 @@ export class Engine {
   );
  }
 
+  // Audio Payload Execution
+
+    runAudio(audio: { file: string; volume: number }): void {
+  console.log(
+    `Playing audio ${audio.file} at volume ${audio.volume}.`
+  );
+ }
+
   // Timeline
   playTimeline(state: State): void {
     for (const event of state.timeline.events) {
@@ -158,11 +166,12 @@ export class Engine {
             break;
 
           case "audio":
-            console.log(
-              `Starting audio event: ${
-                (event.payload as { file: string }).file
-              }`
-            );
+            this.runAudio(
+                event.payload as {
+                file: string;
+                volume: number;
+                }
+                 );
             break;
 
           case "overlay":
