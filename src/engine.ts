@@ -230,7 +230,9 @@ export class Engine {
     for (const reveal of panelGroup.reveals) {
       const timer = setTimeout(() => {
         console.log(
-          `Revealing panel ${reveal.panelId}.`
+        `Revealing panel ${reveal.panelId} at (${reveal.x}, ${reveal.y}) ` +
+        `size ${reveal.width}x${reveal.height} ` +
+        `rotation ${reveal.rotation}°.`
         );
       }, reveal.delay);
       this.registerTimer(timer);

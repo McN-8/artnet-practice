@@ -270,3 +270,6 @@ engine.preloadNearbyStates(currentStateIndex);
 engine.unloadDistantStateAssets(currentStateIndex);
 
 engine.handleInput(InputType.TAP_RIGHT);
+
+// Timer Test ; (Keep commented out until testing is needed.)
+// engine.playPanelGroup(forestOpening);
