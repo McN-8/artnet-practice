@@ -25,7 +25,18 @@ export class StorySerializer {
         cameraPaths: state.cameraPaths,
         cameraEvents: state.cameraEvents,
         panelGroups: state.panelGroups,
-        timeline: state.timeline,
+        timeline: {
+            events: state.timeline.events.map((event) => ({
+            timestamp: event.timestamp,
+            type: event.type,
+            payloadId:
+                typeof event.payload === "object" &&
+                event.payload !== null &&
+                "id" in event.payload
+                ? event.payload.id
+                : undefined
+          }))
+        },
         autoAdvanceEnabled: state.autoAdvanceEnabled,
         autoAdvanceDelay: state.autoAdvanceDelay,
         fastForwardEnabled: state.fastForwardEnabled,
