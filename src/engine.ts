@@ -243,6 +243,13 @@ export class Engine {
     }, effectiveDelay);
   }
 
+  // Timer Cleanup
+  startState(state: State): void {
+  this.clearActiveTimers();
+  this.applyAudioLayerRules(state);
+  this.playTimeline(state);
+ }
+
   // Transition Pipeline
   prepareTransition(destinationState: State): void {
     this.preloadStateAssets(destinationState);

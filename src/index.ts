@@ -262,8 +262,7 @@ console.log(`Audio stack has ${audioStack.layers.length} layer.`);
 // Runtime test
 console.log(`Current state is ${engine.currentState.id}`);
 
-engine.applyAudioLayerRules(state1);
-engine.playTimeline(state1);
+engine.startState(state1);
 
 engine.preloadNearbyStates(0);
 engine.unloadDistantStateAssets(0);
