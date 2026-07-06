@@ -256,8 +256,7 @@ export class Engine {
   }
 
   finalizeTransition(): void {
-    this.applyAudioLayerRules(this.currentState);
-    this.playTimeline(this.currentState);
+  this.startState(this.currentState);
   }
 
   // Prompt Execution
