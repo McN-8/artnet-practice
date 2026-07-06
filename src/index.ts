@@ -48,6 +48,7 @@ const state2Ambience = new Asset("forest_ambience.mp3", "audio");
 
 // Audio
 const forestAmbience = new AudioCue(
+  "forest-ambience",
   "forest_ambience.mp3",
   "ambience",
   true,
@@ -60,6 +61,7 @@ const forestAmbience = new AudioCue(
 );
 
 const punchSound = new AudioCue(
+  "punch-sound",
   "punch.wav",
   "soundEffect",
   false,
