@@ -76,7 +76,12 @@ const audioStack = new AudioStack();
 audioStack.addLayer(forestBaseLayer);
 
 // Effects
-const leafDrift = new Effect("floatingLeaves", "onEnterState", 5000);
+const leafDrift = new Effect(
+  "leaf-drift",
+  "floatingLeaves",
+  "onEnterState",
+  5000
+);
 
 // Zoom
 const hiddenClipboardText = new ZoomRegion(
