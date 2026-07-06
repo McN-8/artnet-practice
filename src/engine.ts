@@ -42,6 +42,12 @@ export class Engine {
   }
 
   // Asset Preloading
+  getCurrentStateIndex(): number {
+  return this.states.findIndex(
+    (state) => state.id === this.currentState.id
+  );
+ }
+  
   preloadStateAssets(state: State): void {
     console.log(`Preloading assets for ${state.id}`);
 

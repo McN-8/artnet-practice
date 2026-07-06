@@ -264,7 +264,9 @@ console.log(`Current state is ${engine.currentState.id}`);
 
 engine.startState(state1);
 
-engine.preloadNearbyStates(0);
-engine.unloadDistantStateAssets(0);
+const currentStateIndex = engine.getCurrentStateIndex();
+
+engine.preloadNearbyStates(currentStateIndex);
+engine.unloadDistantStateAssets(currentStateIndex);
 
 engine.executePrompt(goForward);
