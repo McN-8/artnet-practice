@@ -5,7 +5,10 @@ export class StorySerializer {
     const exportData = {
       title: story.title,
       creator: story.creator,
-      chapters: story.chapters
+      chapters: story.chapters.map((chapter) => ({
+        title: chapter.title,
+        states: chapter.states
+      }))
     };
 
     return JSON.stringify(exportData, null, 2);
