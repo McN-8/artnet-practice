@@ -126,18 +126,23 @@ export class Engine {
     }
   }
 
+  // Camera Path
+    runCameraPath(path: { id: string; duration: number; speedMultiplier: number }): void {
+  console.log(
+    `Running camera path ${path.id} for ${path.duration}ms at ${path.speedMultiplier}x speed.`
+  );
+ }
+
   // Timeline
   playTimeline(state: State): void {
     for (const event of state.timeline.events) {
       const timer = setTimeout(() => {
         switch (event.type) {
           case "camera":
-            console.log(
-              `Starting camera event: ${
-                (event.payload as { id: string }).id
-              }`
-            );
-            break;
+            this.runCameraPath(
+                 event.payload as { id: string; duration: number; speedMultiplier: number }
+                 );
+                break;
 
           case "effect":
             console.log(
