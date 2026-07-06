@@ -133,6 +133,13 @@ export class Engine {
   );
  }
 
+  // Run Effect
+  runEffect(effect: { type: string; duration: number }): void {
+  console.log(
+    `Running effect ${effect.type} for ${effect.duration}ms.`
+  );
+ }
+
   // Timeline
   playTimeline(state: State): void {
     for (const event of state.timeline.events) {
@@ -142,14 +149,12 @@ export class Engine {
             this.runCameraPath(
                  event.payload as { id: string; duration: number; speedMultiplier: number }
                  );
-                break;
+            break;
 
           case "effect":
-            console.log(
-              `Starting effect event: ${
-                (event.payload as { type: string }).type
-              }`
-            );
+            this.runEffect(
+                event.payload as { type: string; duration: number }
+                 );
             break;
 
           case "audio":
