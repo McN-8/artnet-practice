@@ -23,6 +23,7 @@ import { OverlayAsset } from "./overlayAsset.js";
 import { PanelGroup } from "./panelGroup.js";
 import { PanelReveal } from "./panelReveal.js";
 import { StorySerializer } from "./storySerializer.js";
+import { ArtNetResources } from "./artNetResources.js";
 
 // Story setup
 const story = new Story("The Forest of Onekus", "Jaiden McNamara");
@@ -210,6 +211,17 @@ forestTimeline.addEvent(
   )
 );
 
+// Resources
+const resources = new ArtNetResources();
+
+resources.effects.register(leafDrift);
+resources.audio.register(forestAmbience);
+resources.audio.register(punchSound);
+resources.overlays.register(onekusJumpOverlay);
+resources.cameraPaths.register(canopyToBoyPath);
+resources.panelGroups.register(forestOpening);
+
+
 // Transitions and prompts
 const zoomEffect = new TransitionEffect(
   "zoomInspect",
@@ -313,6 +325,27 @@ console.log(
 console.log(
   "Found effect:",
   effectRegistry.get("leaf-drift")?.type
+);
+
+// Resource Registry Diagnostics
+console.log(
+  `Registered effects: ${resources.effects.getAll().length}`
+);
+
+console.log(
+  `Registered audio cues: ${resources.audio.getAll().length}`
+);
+
+console.log(
+  `Registered overlays: ${resources.overlays.getAll().length}`
+);
+
+console.log(
+  `Registered camera paths: ${resources.cameraPaths.getAll().length}`
+);
+
+console.log(
+  `Registered panel groups: ${resources.panelGroups.getAll().length}`
 );
 
 // Serializer Test
