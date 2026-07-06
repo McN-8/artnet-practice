@@ -7,7 +7,30 @@ export class StorySerializer {
       creator: story.creator,
       chapters: story.chapters.map((chapter) => ({
         title: chapter.title,
-        states: chapter.states
+        states: chapter.states.map((state) => ({
+        id: state.id,
+        image: state.image,
+        dialogue: state.dialogue,
+        zoomEnabled: state.zoomEnabled,
+        zoomInteractive: state.zoomInteractive,
+        zoomRegions: state.zoomRegions,
+        audioCues: state.audioCues,
+        audioLayersToActivate: state.audioLayersToActivate,
+        audioLayersToDeactivate: state.audioLayersToDeactivate,
+        prompts: state.prompts,
+        effects: state.effects,
+        assets: state.assets,
+        cameraBehaviors: state.cameraBehaviors,
+        cameraFocalPoints: state.cameraFocalPoints,
+        cameraPaths: state.cameraPaths,
+        cameraEvents: state.cameraEvents,
+        panelGroups: state.panelGroups,
+        timeline: state.timeline,
+        autoAdvanceEnabled: state.autoAdvanceEnabled,
+        autoAdvanceDelay: state.autoAdvanceDelay,
+        fastForwardEnabled: state.fastForwardEnabled,
+        fastForwardMultiplier: state.fastForwardMultiplier
+        }))
       }))
     };
 
