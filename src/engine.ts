@@ -305,6 +305,31 @@ export class Engine {
   this.startState(this.currentState);
   }
 
+  // Prompt Matching
+  findPrompt(
+  inputType: string,
+  targetId?: string
+    ): Prompt | undefined {
+  return this.currentState.prompts.find(
+    (prompt) =>
+      prompt.inputType === inputType &&
+      this.matchesTarget(prompt, targetId)
+        );
+    }
+    handleInput(
+  inputType: string,
+  targetId?: string
+    ): void {
+  const prompt = this.findPrompt(inputType, targetId);
+
+  if (!prompt) {
+    console.log("No matching prompt found.");
+    return;
+  }
+
+  this.executePrompt(prompt, targetId);
+    }
+
   // Object Interaction
   matchesTarget(
   prompt: Prompt,
