@@ -344,6 +344,9 @@ console.log(
 console.log(
   `Loaded chapters: ${loadedStory.chapters.length}`
 );
+console.log(
+  `Loaded states: ${loadedStory.chapters[0]?.states.length}`
+);
 
 console.log("Serialized story:");
 console.log(storyJSON);

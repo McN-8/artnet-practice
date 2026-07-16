@@ -1,5 +1,6 @@
 import { Story } from "./story.js";
 import { Chapter } from "./chapter.js";
+import { State } from "./state.js";
 
 export class StorySerializer {
   static toJSON(story: Story): string {
@@ -58,11 +59,21 @@ export class StorySerializer {
   );
 
   for (const chapterData of data.chapters) {
-    const chapter = new Chapter(
-      chapterData.title
+  const chapter = new Chapter(chapterData.title);
+
+  for (const stateData of chapterData.states) {
+    const state = new State(
+      stateData.id,
+      stateData.image,
+      stateData.dialogue,
+      stateData.zoomEnabled,
+      stateData.zoomInteractive
     );
 
-    story.addChapter(chapter);
+    chapter.addState(state);
+  }
+
+  story.addChapter(chapter);
   }
 
   return story;
