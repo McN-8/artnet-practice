@@ -335,6 +335,16 @@ console.log(
 // Serializer Test
 const storyJSON = StorySerializer.toJSON(story);
 
+const loadedStory = StorySerializer.fromJSON(storyJSON);
+
+console.log(
+  `Loaded story: ${loadedStory.title} by ${loadedStory.creator}`
+);
+
+console.log(
+  `Loaded chapters: ${loadedStory.chapters.length}`
+);
+
 console.log("Serialized story:");
 console.log(storyJSON);
 
