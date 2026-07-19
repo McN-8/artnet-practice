@@ -7,6 +7,7 @@ import { Effect } from "./effect.js";
 import { AudioCue } from "./audioCue.js";
 import { CameraPath } from "./cameraPath.js";
 import { CameraFocalPoint } from "./cameraFocalPoint.js";
+import { OverlayAsset } from "./overlayAsset.js";
 
 export class StorySerializer {
   static toJSON(
@@ -129,6 +130,19 @@ export class StorySerializer {
   );
 
   resources.cameraPaths.register(cameraPath);
+  }
+
+  for (const overlayData of data.resources.overlays) {
+  const overlay = new OverlayAsset(
+    overlayData.id,
+    overlayData.asset,
+    overlayData.pathId,
+    overlayData.rotation,
+    overlayData.duration,
+    overlayData.followPath
+  );
+
+  resources.overlays.register(overlay);
   }
 
   for (const chapterData of data.chapters) {

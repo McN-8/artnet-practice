@@ -392,6 +392,19 @@ console.log(
 );
 
 console.log(
+  `Loaded overlays: ${
+    loadedResources.overlays.getAll().length
+  }`
+);
+
+const loadedOverlay =
+  loadedResources.overlays.get("onekus-jump");
+
+console.log(
+  `Loaded overlay: ${loadedOverlay?.id}, asset: ${loadedOverlay?.asset}`
+);
+
+console.log(
   `Loaded story: ${loadedStory.title} by ${loadedStory.creator}`
 );
 
