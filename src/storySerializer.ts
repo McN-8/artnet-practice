@@ -2,6 +2,7 @@ import { Story } from "./story.js";
 import { Chapter } from "./chapter.js";
 import { State } from "./state.js";
 import { ArtNetResources } from "./artNetResources.js";
+import { ProjectData } from "./projectData.js";
 
 export class StorySerializer {
   static toJSON(
@@ -61,13 +62,15 @@ export class StorySerializer {
     return JSON.stringify(exportData, null, 2);
   }
 
- static fromJSON(json: string): Story {
+ static fromJSON(json: string): ProjectData {
   const data = JSON.parse(json);
 
   const story = new Story(
     data.title,
     data.creator
   );
+
+  const resources = new ArtNetResources();
 
   for (const chapterData of data.chapters) {
   const chapter = new Chapter(chapterData.title);
@@ -87,6 +90,9 @@ export class StorySerializer {
   story.addChapter(chapter);
   }
 
-  return story;
+  return new ProjectData(
+    story,
+    resources
+);
 }
 }

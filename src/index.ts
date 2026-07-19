@@ -338,7 +338,10 @@ const storyJSON = StorySerializer.toJSON(
   resources
 );
 
-const loadedStory = StorySerializer.fromJSON(storyJSON);
+const project = StorySerializer.fromJSON(storyJSON);
+
+const loadedStory = project.story;
+const loadedResources = project.resources;
 
 console.log(
   `Loaded story: ${loadedStory.title} by ${loadedStory.creator}`
@@ -349,6 +352,12 @@ console.log(
 );
 console.log(
   `Loaded states: ${loadedStory.chapters[0]?.states.length}`
+);
+
+console.log(
+    `Loaded resource library created: ${
+        loadedResources instanceof ArtNetResources
+    }`
 );
 
 console.log("Serialized story:");
