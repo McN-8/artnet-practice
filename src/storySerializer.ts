@@ -39,7 +39,7 @@ export class StorySerializer {
           audioLayersToActivate: state.audioLayersToActivate,
           audioLayersToDeactivate: state.audioLayersToDeactivate,
           prompts: state.prompts,
-          effects: state.effects,
+          effectIds: state.effects.map((effect) => effect.id),
           assets: state.assets,
           cameraBehaviors: state.cameraBehaviors,
           cameraFocalPoints: state.cameraFocalPoints,
@@ -178,6 +178,18 @@ export class StorySerializer {
       stateData.zoomEnabled,
       stateData.zoomInteractive
     );
+
+    for (const effectId of stateData.effectIds) {
+  const effect = resources.effects.get(effectId);
+
+  if (effect) {
+    state.addEffect(effect);
+    } else {
+    console.warn(
+      `Missing effect resource: ${effectId}`
+      );
+      }
+    }
 
     chapter.addState(state);
   }

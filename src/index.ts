@@ -346,6 +346,15 @@ const project = StorySerializer.fromJSON(storyJSON);
 const loadedStory = project.story;
 const loadedResources = project.resources;
 
+const loadedState1 =
+  loadedStory.chapters[0]?.states[0];
+
+console.log(
+  `Loaded state-1 effects: ${
+    loadedState1?.effects.length ?? 0
+  }`
+);
+
 console.log(
     `Loaded resource library created: ${
         loadedResources instanceof ArtNetResources
