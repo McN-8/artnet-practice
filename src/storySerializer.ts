@@ -35,7 +35,7 @@ export class StorySerializer {
           zoomEnabled: state.zoomEnabled,
           zoomInteractive: state.zoomInteractive,
           zoomRegions: state.zoomRegions,
-          audioCues: state.audioCues,
+          audioCueIds: state.audioCues.map((audioCue) => audioCue.id),
           audioLayersToActivate: state.audioLayersToActivate,
           audioLayersToDeactivate: state.audioLayersToDeactivate,
           prompts: state.prompts,
@@ -189,6 +189,18 @@ export class StorySerializer {
       `Missing effect resource: ${effectId}`
       );
       }
+    }
+
+    for (const audioCueId of stateData.audioCueIds) {
+    const audioCue = resources.audio.get(audioCueId);
+
+    if (audioCue) {
+    state.addAudioCue(audioCue);
+    } else {
+    console.warn(
+      `Missing audio resource: ${audioCueId}`
+    );
+   }
     }
 
     chapter.addState(state);

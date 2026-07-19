@@ -356,6 +356,12 @@ console.log(
 );
 
 console.log(
+  `Loaded state-1 audio cues: ${
+    loadedState1?.audioCues.length ?? 0
+  }`
+);
+
+console.log(
     `Loaded resource library created: ${
         loadedResources instanceof ArtNetResources
     }`
