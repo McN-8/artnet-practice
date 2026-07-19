@@ -375,6 +375,23 @@ console.log(
 );
 
 console.log(
+  `Loaded camera paths: ${
+    loadedResources.cameraPaths.getAll().length
+  }`
+);
+
+const loadedCanopyPath =
+  loadedResources.cameraPaths.get("canopy-to-boy");
+
+console.log(
+  `Loaded camera path: ${loadedCanopyPath?.id}, duration: ${loadedCanopyPath?.duration}`
+);
+
+console.log(
+  `Loaded path start: ${loadedCanopyPath?.startPoint.id}`
+);
+
+console.log(
   `Loaded story: ${loadedStory.title} by ${loadedStory.creator}`
 );
 

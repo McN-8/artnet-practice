@@ -5,6 +5,8 @@ import { ArtNetResources } from "./artNetResources.js";
 import { ProjectData } from "./projectData.js";
 import { Effect } from "./effect.js";
 import { AudioCue } from "./audioCue.js";
+import { CameraPath } from "./cameraPath.js";
+import { CameraFocalPoint } from "./cameraFocalPoint.js";
 
 export class StorySerializer {
   static toJSON(
@@ -100,6 +102,33 @@ export class StorySerializer {
   );
 
   resources.audio.register(audio);
+  }
+
+  for (const cameraPathData of data.resources.cameraPaths) {
+  const startPoint = new CameraFocalPoint(
+    cameraPathData.startPoint.id,
+    cameraPathData.startPoint.x,
+    cameraPathData.startPoint.y,
+    cameraPathData.startPoint.zoomLevel
+  );
+
+  const endPoint = new CameraFocalPoint(
+    cameraPathData.endPoint.id,
+    cameraPathData.endPoint.x,
+    cameraPathData.endPoint.y,
+    cameraPathData.endPoint.zoomLevel
+  );
+
+  const cameraPath = new CameraPath(
+    cameraPathData.id,
+    startPoint,
+    endPoint,
+    cameraPathData.duration,
+    cameraPathData.easing,
+    cameraPathData.speedMultiplier
+  );
+
+  resources.cameraPaths.register(cameraPath);
   }
 
   for (const chapterData of data.chapters) {
