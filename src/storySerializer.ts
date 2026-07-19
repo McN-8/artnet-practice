@@ -8,6 +8,8 @@ import { AudioCue } from "./audioCue.js";
 import { CameraPath } from "./cameraPath.js";
 import { CameraFocalPoint } from "./cameraFocalPoint.js";
 import { OverlayAsset } from "./overlayAsset.js";
+import { PanelGroup } from "./panelGroup.js";
+import { PanelReveal } from "./panelReveal.js";
 
 export class StorySerializer {
   static toJSON(
@@ -143,6 +145,26 @@ export class StorySerializer {
   );
 
   resources.overlays.register(overlay);
+  }
+
+  for (const panelGroupData of data.resources.panelGroups) {
+  const panelGroup = new PanelGroup(panelGroupData.id);
+
+  for (const revealData of panelGroupData.reveals) {
+    const reveal = new PanelReveal(
+      revealData.panelId,
+      revealData.delay,
+      revealData.x,
+      revealData.y,
+      revealData.width,
+      revealData.height,
+      revealData.rotation
+    );
+
+    panelGroup.addReveal(reveal);
+  }
+
+  resources.panelGroups.register(panelGroup);
   }
 
   for (const chapterData of data.chapters) {

@@ -405,6 +405,25 @@ console.log(
 );
 
 console.log(
+  `Loaded panel groups: ${
+    loadedResources.panelGroups.getAll().length
+  }`
+);
+
+const loadedForestOpening =
+  loadedResources.panelGroups.get("forest-opening");
+
+console.log(
+  `Loaded panel group: ${loadedForestOpening?.id}`
+);
+
+console.log(
+  `Reveals in group: ${
+    loadedForestOpening?.reveals.length
+  }`
+);
+
+console.log(
   `Loaded story: ${loadedStory.title} by ${loadedStory.creator}`
 );
 
