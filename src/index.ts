@@ -333,7 +333,10 @@ console.log(
 );
 
 // Serializer Test
-const storyJSON = StorySerializer.toJSON(story);
+const storyJSON = StorySerializer.toJSON(
+  story,
+  resources
+);
 
 const loadedStory = StorySerializer.fromJSON(storyJSON);
 

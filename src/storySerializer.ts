@@ -1,12 +1,23 @@
 import { Story } from "./story.js";
 import { Chapter } from "./chapter.js";
 import { State } from "./state.js";
+import { ArtNetResources } from "./artNetResources.js";
 
 export class StorySerializer {
-  static toJSON(story: Story): string {
+  static toJSON(
+    story: Story,
+    resources: ArtNetResources
+    ): string {
     const exportData = {
       title: story.title,
       creator: story.creator,
+      resources: {
+        effects: resources.effects.getAll(),
+        audio: resources.audio.getAll(),
+        overlays: resources.overlays.getAll(),
+        cameraPaths: resources.cameraPaths.getAll(),
+        panelGroups: resources.panelGroups.getAll()
+      },
       chapters: story.chapters.map((chapter) => ({
         title: chapter.title,
         states: chapter.states.map((state) => ({
