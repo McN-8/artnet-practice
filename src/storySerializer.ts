@@ -3,6 +3,7 @@ import { Chapter } from "./chapter.js";
 import { State } from "./state.js";
 import { ArtNetResources } from "./artNetResources.js";
 import { ProjectData } from "./projectData.js";
+import { Effect } from "./effect.js";
 
 export class StorySerializer {
   static toJSON(
@@ -71,6 +72,17 @@ export class StorySerializer {
   );
 
   const resources = new ArtNetResources();
+  
+  for (const effectData of data.resources.effects) {
+  const effect = new Effect(
+    effectData.id,
+    effectData.type,
+    effectData.trigger,
+    effectData.duration
+  );
+
+  resources.effects.register(effect);
+  }
 
   for (const chapterData of data.chapters) {
   const chapter = new Chapter(chapterData.title);

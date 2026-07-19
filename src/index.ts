@@ -344,6 +344,23 @@ const loadedStory = project.story;
 const loadedResources = project.resources;
 
 console.log(
+    `Loaded resource library created: ${
+        loadedResources instanceof ArtNetResources
+    }`
+);
+
+console.log(
+  `Loaded effects: ${loadedResources.effects.getAll().length}`
+);
+
+const loadedLeafDrift =
+  loadedResources.effects.get("leaf-drift");
+
+console.log(
+  `Loaded effect: ${loadedLeafDrift?.id}, type: ${loadedLeafDrift?.type}`
+);
+
+console.log(
   `Loaded story: ${loadedStory.title} by ${loadedStory.creator}`
 );
 
@@ -352,12 +369,6 @@ console.log(
 );
 console.log(
   `Loaded states: ${loadedStory.chapters[0]?.states.length}`
-);
-
-console.log(
-    `Loaded resource library created: ${
-        loadedResources instanceof ArtNetResources
-    }`
 );
 
 console.log("Serialized story:");
