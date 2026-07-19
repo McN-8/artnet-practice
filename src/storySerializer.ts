@@ -4,6 +4,7 @@ import { State } from "./state.js";
 import { ArtNetResources } from "./artNetResources.js";
 import { ProjectData } from "./projectData.js";
 import { Effect } from "./effect.js";
+import { AudioCue } from "./audioCue.js";
 
 export class StorySerializer {
   static toJSON(
@@ -82,6 +83,23 @@ export class StorySerializer {
   );
 
   resources.effects.register(effect);
+  }
+
+  for (const audioData of data.resources.audio) {
+  const audio = new AudioCue(
+    audioData.id,
+    audioData.file,
+    audioData.type,
+    audioData.loop,
+    audioData.volume,
+    audioData.trigger,
+    audioData.persistsAcrossStates,
+    audioData.fadeInDuration,
+    audioData.fadeOutDuration,
+    audioData.layerGroup
+  );
+
+  resources.audio.register(audio);
   }
 
   for (const chapterData of data.chapters) {

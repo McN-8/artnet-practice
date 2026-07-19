@@ -292,6 +292,9 @@ console.log(`${state1.id} has ${state1.prompts.length} prompt.`);
 console.log(`${state2.id} has ${state2.prompts.length} prompt.`);
 console.log(`${state1.id} timeline events: ${state1.timeline.events.length}`);
 console.log(`${state1.id} has ${state1.effects.length} effect.`);
+
+
+
 console.log(
   `${state2.id} zoom enabled: ${state2.zoomEnabled}, interactive: ${state2.zoomInteractive}.`
 );
@@ -358,6 +361,17 @@ const loadedLeafDrift =
 
 console.log(
   `Loaded effect: ${loadedLeafDrift?.id}, type: ${loadedLeafDrift?.type}`
+);
+
+console.log(
+  `Loaded audio cues: ${loadedResources.audio.getAll().length}`
+);
+
+const loadedForestAmbience =
+  loadedResources.audio.get("forest-ambience");
+
+console.log(
+  `Loaded audio: ${loadedForestAmbience?.id}, layer: ${loadedForestAmbience?.layerGroup}`
 );
 
 console.log(
