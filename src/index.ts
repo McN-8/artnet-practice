@@ -362,6 +362,32 @@ console.log(
 );
 
 console.log(
+  `Loaded state-1 camera paths: ${
+    loadedState1?.cameraPaths.length ?? 0
+  }`
+);
+
+console.log(
+  `Loaded state-1 panel groups: ${
+    loadedState1?.panelGroups.length ?? 0
+  }`
+);
+
+console.log(
+  `Loaded timeline events: ${
+    loadedState1?.timeline.events.length ?? 0
+  }`
+);
+
+const firstTimelineEvent =
+  loadedState1?.timeline.events[0];
+
+console.log(
+  "First timeline payload:",
+  firstTimelineEvent?.payload
+);
+
+console.log(
     `Loaded resource library created: ${
         loadedResources instanceof ArtNetResources
     }`
