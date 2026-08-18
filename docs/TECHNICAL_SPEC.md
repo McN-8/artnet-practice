@@ -1,7 +1,7 @@
 # ArtNet Technical Specification
 
 **Status:** Initial canonical draft  
-**Last updated:** 2026-08-11  
+**Last updated:** 2026-08-18
 **Authority:** This document records the approved product direction and the implementation demonstrated in the ArtNet development history. When this document conflicts with running code, the code describes current behavior and this document must be updated. When it conflicts with `PROJECT_BIBLE.md` on product intent, the Bible takes precedence.
 
 ## 1. Purpose and status vocabulary
@@ -77,7 +77,7 @@ The editor and player should consume the same domain rules and serialization con
 | `OverlayAsset` | Reusable moving/placed overlay description | References a camera/path ID and contains rotation, duration, and path-following behavior |
 | `CameraFocalPoint` | Position and zoom target | Used by camera paths and state camera configuration |
 | `CameraPath` | Reusable camera motion | Connects start/end focal points; includes duration, easing, and speed multiplier |
-| `CameraEvent` | Schedules a camera path | Contains trigger time and currently embeds a `CameraPath` in serialized state data |
+| `CameraEvent` | Schedules a camera path | Contains trigger time and a runtime `CameraPath`; serialized as `cameraPathId` |
 | `PanelGroup` | Coordinated panel reveal unit | Owns `PanelReveal[]` |
 | `PanelReveal` | Panel layout and reveal instruction | Panel ID, delay, x/y, width/height, and rotation |
 | `ZoomRegion` | Inspectable target in a state | ID, bounds, and textual description |
@@ -91,14 +91,13 @@ The editor and player should consume the same domain rules and serialization con
 - A story owns chapters; a chapter owns states.
 - Prompts form directed graph edges between states by destination ID.
 - Top-level reusable resources have stable IDs and a single canonical serialized definition.
-- State effects, state audio cues, state camera paths, state panel groups, and typed timeline payloads serialize as IDs and are resolved back to runtime objects by the loader.
+- State effects, state audio cues, state camera paths, camera-event paths, state panel groups, and typed timeline payloads serialize as IDs and are resolved back to runtime objects by the loader.
 - The loader uses domain methods such as `addEffect`, `addAudioCue`, `addCameraPath`, and `addPanelGroup` to reconstruct state membership.
 - Missing resources are expected to be diagnosable rather than silently invented.
 
 ### 3.3 Known normalization gaps — Planned
 
 - Transition `triggeredAudioCues` still serialize embedded audio objects rather than resource IDs.
-- `CameraEvent` still serializes an embedded `CameraPath`; conversion to `cameraPathId` is the next identified normalization slice.
 - It has not been demonstrated that overlays can be directly attached to a state outside timeline references.
 - IDs are used as references, but formal uniqueness scope, allowed characters, and rename/migration semantics are not yet specified.
 
@@ -293,7 +292,7 @@ No visual editor is implemented in the evidenced prototype.
 ### Implemented
 
 - `StorySerializer.toJSON()` produces a JSON representation of the story and resource library.
-- `StorySerializer.fromJSON()` recreates the story, resource library, registries, and the demonstrated state/timeline references.
+- `StorySerializer.fromJSON()` recreates the story, resource library, registries, camera events, and the demonstrated state/timeline references.
 - A serialize/load round trip has been demonstrated for one story, two states, and registered resource examples.
 
 This is object serialization, not yet durable application persistence.
@@ -451,6 +450,12 @@ The demonstrated format is structurally equivalent to:
           "effectIds": [],
           "audioCueIds": [],
           "cameraPathIds": [],
+          "cameraEvents": [
+            {
+              "triggerTime": 0,
+              "cameraPathId": "..."
+            }
+          ],
           "panelGroupIds": [],
           "timeline": {
             "events": [
@@ -468,7 +473,7 @@ The demonstrated format is structurally equivalent to:
 }
 ```
 
-Additional implemented state fields include zoom settings/regions, audio layer directives, prompts, assets, camera behaviors/focal points/events, auto-advance settings, and fast-forward settings. The displayed shape is illustrative, not yet a normative JSON Schema.
+Additional implemented state fields include zoom settings/regions, audio layer directives, prompts, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
 
 ## 19. Unresolved questions
 
@@ -483,7 +488,7 @@ The following decisions must remain open until explicitly resolved:
 7. What exactly constitutes reader progress: current state only, navigation history, revealed panels, elapsed timeline time, variables, or a full runtime snapshot?
 8. On restoration, should timelines replay from zero, resume from elapsed time, or restore only declared persistent outcomes?
 9. Which audio layer rules govern exclusivity, ducking, priority, crossfade, persistence, and conflict resolution?
-10. Should transition-triggered audio and camera events be normalized through registries, and are any deliberately inline/value-owned resources allowed?
+10. Should transition-triggered audio be normalized through the registry, and are any deliberately inline/value-owned resources allowed?
 11. What is the stable ID policy and how do renames affect references, migrations, saves, and published versions?
 12. What is the versioning and compatibility policy for project files, runtime packages, and published stories?
 13. What durable storage, identity, collaboration, publication, and deployment services will be used?
@@ -499,14 +504,13 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Normalize `CameraEvent` persistence to `cameraPathId` and reconstruct it through the resource registry.
-2. Normalize transition-triggered audio to resource IDs.
-3. Add a schema version, runtime validation, reference-integrity validation, and clear load errors.
-4. Establish automated unit and round-trip tests using a deterministic clock.
-5. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
-6. Specify progress snapshots and deterministic restoration semantics.
-7. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-8. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
+1. Normalize transition-triggered audio to resource IDs.
+2. Add a schema version, runtime validation, reference-integrity validation, and clear load errors.
+3. Establish automated unit and round-trip tests using a deterministic clock.
+4. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
+5. Specify progress snapshots and deterministic restoration semantics.
+6. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+7. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
 
 ## 21. Canonical maintenance rules
 

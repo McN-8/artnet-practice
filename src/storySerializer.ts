@@ -7,6 +7,7 @@ import { Effect } from "./effect.js";
 import { AudioCue } from "./audioCue.js";
 import { CameraPath } from "./cameraPath.js";
 import { CameraFocalPoint } from "./cameraFocalPoint.js";
+import { CameraEvent } from "./cameraEvent.js";
 import { OverlayAsset } from "./overlayAsset.js";
 import { PanelGroup } from "./panelGroup.js";
 import { PanelReveal } from "./panelReveal.js";
@@ -65,7 +66,12 @@ export class StorySerializer {
             (cameraPath) => cameraPath.id
           ),
 
-          cameraEvents: state.cameraEvents,
+          cameraEvents: state.cameraEvents.map(
+            (cameraEvent) => ({
+              triggerTime: cameraEvent.triggerTime,
+              cameraPathId: cameraEvent.cameraPath.id
+            })
+          ),
 
           panelGroupIds: state.panelGroups.map(
             (panelGroup) => panelGroup.id
@@ -308,6 +314,33 @@ export class StorySerializer {
             console.warn(
               `Missing camera path resource: ` +
               `${cameraPathId}`
+            );
+          }
+        }
+
+        /*
+         * Rebuild camera events from camera-path references.
+         */
+        for (
+          const cameraEventData
+          of stateData.cameraEvents
+        ) {
+          const cameraPath =
+            resources.cameraPaths.get(
+              cameraEventData.cameraPathId
+            );
+
+          if (cameraPath) {
+            state.addCameraEvent(
+              new CameraEvent(
+                cameraEventData.triggerTime,
+                cameraPath
+              )
+            );
+          } else {
+            console.warn(
+              `Missing camera event path resource: ` +
+              `${cameraEventData.cameraPathId}`
             );
           }
         }

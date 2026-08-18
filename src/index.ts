@@ -368,6 +368,28 @@ console.log(
 );
 
 console.log(
+  `Loaded state-1 camera events: ${
+    loadedState1?.cameraEvents.length ?? 0
+  }`
+);
+
+const loadedCameraEvent =
+  loadedState1?.cameraEvents[0];
+
+console.log(
+  `Loaded camera event is CameraEvent: ${
+    loadedCameraEvent instanceof CameraEvent
+  }`
+);
+
+console.log(
+  `Loaded camera event uses registered path: ${
+    loadedCameraEvent?.cameraPath ===
+    loadedResources.cameraPaths.get("canopy-to-boy")
+  }`
+);
+
+console.log(
   `Loaded state-1 panel groups: ${
     loadedState1?.panelGroups.length ?? 0
   }`
