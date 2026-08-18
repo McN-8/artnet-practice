@@ -13,6 +13,9 @@ import { PanelGroup } from "./panelGroup.js";
 import { PanelReveal } from "./panelReveal.js";
 import { Timeline } from "./timeline.js";
 import { TimelineEvent } from "./timelineEvent.js";
+import { Prompt } from "./prompt.js";
+import { Transition } from "./transition.js";
+import { TransitionEffect } from "./transitionEffect.js";
 
 export class StorySerializer {
   static toJSON(
@@ -52,7 +55,19 @@ export class StorySerializer {
           audioLayersToDeactivate:
             state.audioLayersToDeactivate,
 
-          prompts: state.prompts,
+          prompts: state.prompts.map((prompt) => ({
+            inputType: prompt.inputType,
+            targetId: prompt.targetId,
+            transition: {
+              destinationStateId:
+                prompt.transition.destinationStateId,
+              effect: prompt.transition.effect,
+              triggeredAudioCueIds:
+                prompt.transition.triggeredAudioCues.map(
+                  (audioCue) => audioCue.id
+                )
+            }
+          })),
 
           effectIds: state.effects.map(
             (effect) => effect.id
@@ -294,6 +309,56 @@ export class StorySerializer {
               `Missing audio resource: ${audioCueId}`
             );
           }
+        }
+
+        /*
+         * Rebuild prompts, transitions, and their
+         * triggered audio-cue references.
+         */
+        for (const promptData of stateData.prompts) {
+          const transitionEffectData =
+            promptData.transition.effect;
+
+          const transitionEffect =
+            new TransitionEffect(
+              transitionEffectData.type,
+              transitionEffectData.duration,
+              transitionEffectData.allowFastForward,
+              transitionEffectData.locksInput
+            );
+
+          const transition = new Transition(
+            promptData.transition.destinationStateId,
+            transitionEffect
+          );
+
+          for (
+            const audioCueId
+            of promptData.transition
+              .triggeredAudioCueIds
+          ) {
+            const audioCue =
+              resources.audio.get(audioCueId);
+
+            if (audioCue) {
+              transition.addTriggeredAudioCue(
+                audioCue
+              );
+            } else {
+              console.warn(
+                `Missing transition audio resource: ` +
+                `${audioCueId}`
+              );
+            }
+          }
+
+          state.addPrompt(
+            new Prompt(
+              promptData.inputType,
+              transition,
+              promptData.targetId
+            )
+          );
         }
 
         /*

@@ -361,6 +361,39 @@ console.log(
   }`
 );
 
+const loadedForwardPrompt =
+  loadedState1?.prompts[0];
+
+const loadedTriggeredAudio =
+  loadedForwardPrompt?.transition
+    .triggeredAudioCues[0];
+
+console.log(
+  `Loaded forward prompt is Prompt: ${
+    loadedForwardPrompt instanceof Prompt
+  }`
+);
+
+console.log(
+  `Loaded prompt transition is Transition: ${
+    loadedForwardPrompt?.transition instanceof Transition
+  }`
+);
+
+console.log(
+  `Loaded transition effect is TransitionEffect: ${
+    loadedForwardPrompt?.transition.effect instanceof
+    TransitionEffect
+  }`
+);
+
+console.log(
+  `Loaded transition audio uses registered cue: ${
+    loadedTriggeredAudio ===
+    loadedResources.audio.get("punch-sound")
+  }`
+);
+
 console.log(
   `Loaded state-1 camera paths: ${
     loadedState1?.cameraPaths.length ?? 0

@@ -67,8 +67,8 @@ The editor and player should consume the same domain rules and serialization con
 | `Story` | Root narrative metadata and chapter collection | Owns ordered `Chapter[]`; associated with an `ArtNetResources` library at project load/save boundaries |
 | `Chapter` | Named narrative subdivision | Owns ordered `State[]` |
 | `State` | Primary runtime scene/snapshot | Owns prompts, zoom configuration, layer directives, assets, camera data, timeline, lifecycle/input settings; holds resolved resource objects at runtime |
-| `Prompt` | Reader or automatic interaction contract | Contains an input type, a `Transition`, and optional target ID |
-| `Transition` | Directed edge in the state graph | Names `destinationStateId`, owns a `TransitionEffect`, and currently embeds triggered audio cue objects |
+| `Prompt` | Reader or automatic interaction contract | Contains an input type, a reconstructed `Transition`, and optional target ID |
+| `Transition` | Directed edge in the state graph | Names `destinationStateId`, owns a `TransitionEffect`, and holds registered triggered audio cues at runtime; cue references serialize as IDs |
 | `TransitionEffect` | Transition timing and input policy | Type, duration, fast-forward permission, and input-lock behavior |
 | `Timeline` | State-relative scheduled instruction collection | Owns `TimelineEvent[]` |
 | `TimelineEvent` | Timestamped typed dispatch | Type plus runtime payload; serialized as `payloadId` for supported resource types |
@@ -91,13 +91,12 @@ The editor and player should consume the same domain rules and serialization con
 - A story owns chapters; a chapter owns states.
 - Prompts form directed graph edges between states by destination ID.
 - Top-level reusable resources have stable IDs and a single canonical serialized definition.
-- State effects, state audio cues, state camera paths, camera-event paths, state panel groups, and typed timeline payloads serialize as IDs and are resolved back to runtime objects by the loader.
+- State effects, state audio cues, transition-triggered audio cues, state camera paths, camera-event paths, state panel groups, and typed timeline payloads serialize as IDs and are resolved back to runtime objects by the loader.
 - The loader uses domain methods such as `addEffect`, `addAudioCue`, `addCameraPath`, and `addPanelGroup` to reconstruct state membership.
 - Missing resources are expected to be diagnosable rather than silently invented.
 
 ### 3.3 Known normalization gaps — Planned
 
-- Transition `triggeredAudioCues` still serialize embedded audio objects rather than resource IDs.
 - It has not been demonstrated that overlays can be directly attached to a state outside timeline references.
 - IDs are used as references, but formal uniqueness scope, allowed characters, and rename/migration semantics are not yet specified.
 
@@ -259,7 +258,6 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - User controls for master, music, ambience, effects, and narration where applicable.
 - Captions/transcripts or equivalent alternatives for narratively meaningful audio.
 - Browser/mobile audio-unlock behavior and graceful handling when autoplay is unavailable.
-- Normalize transition-triggered audio to resource IDs.
 
 ### Exploratory
 
@@ -292,7 +290,7 @@ No visual editor is implemented in the evidenced prototype.
 ### Implemented
 
 - `StorySerializer.toJSON()` produces a JSON representation of the story and resource library.
-- `StorySerializer.fromJSON()` recreates the story, resource library, registries, camera events, and the demonstrated state/timeline references.
+- `StorySerializer.fromJSON()` recreates the story, resource library, registries, prompts and transitions, camera events, and the demonstrated state/timeline references.
 - A serialize/load round trip has been demonstrated for one story, two states, and registered resource examples.
 
 This is object serialization, not yet durable application persistence.
@@ -447,6 +445,21 @@ The demonstrated format is structurally equivalent to:
           "id": "...",
           "image": "...",
           "dialogue": "...",
+          "prompts": [
+            {
+              "inputType": "tapRight",
+              "transition": {
+                "destinationStateId": "...",
+                "effect": {
+                  "type": "fadeIn",
+                  "duration": 0,
+                  "allowFastForward": true,
+                  "locksInput": false
+                },
+                "triggeredAudioCueIds": ["..."]
+              }
+            }
+          ],
           "effectIds": [],
           "audioCueIds": [],
           "cameraPathIds": [],
@@ -473,7 +486,7 @@ The demonstrated format is structurally equivalent to:
 }
 ```
 
-Additional implemented state fields include zoom settings/regions, audio layer directives, prompts, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
+Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
 
 ## 19. Unresolved questions
 
@@ -488,7 +501,7 @@ The following decisions must remain open until explicitly resolved:
 7. What exactly constitutes reader progress: current state only, navigation history, revealed panels, elapsed timeline time, variables, or a full runtime snapshot?
 8. On restoration, should timelines replay from zero, resume from elapsed time, or restore only declared persistent outcomes?
 9. Which audio layer rules govern exclusivity, ducking, priority, crossfade, persistence, and conflict resolution?
-10. Should transition-triggered audio be normalized through the registry, and are any deliberately inline/value-owned resources allowed?
+10. Are any deliberately inline/value-owned resources allowed, or must all reusable domain objects be registry-backed?
 11. What is the stable ID policy and how do renames affect references, migrations, saves, and published versions?
 12. What is the versioning and compatibility policy for project files, runtime packages, and published stories?
 13. What durable storage, identity, collaboration, publication, and deployment services will be used?
@@ -504,13 +517,12 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Normalize transition-triggered audio to resource IDs.
-2. Add a schema version, runtime validation, reference-integrity validation, and clear load errors.
-3. Establish automated unit and round-trip tests using a deterministic clock.
-4. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
-5. Specify progress snapshots and deterministic restoration semantics.
-6. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-7. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
+1. Add a schema version, runtime validation, reference-integrity validation, and clear load errors.
+2. Establish automated unit and round-trip tests using a deterministic clock.
+3. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
+4. Specify progress snapshots and deterministic restoration semantics.
+5. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+6. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
 
 ## 21. Canonical maintenance rules
 
