@@ -16,6 +16,10 @@ import { TimelineEvent } from "./timelineEvent.js";
 import { Prompt } from "./prompt.js";
 import { Transition } from "./transition.js";
 import { TransitionEffect } from "./transitionEffect.js";
+import {
+  CURRENT_SCHEMA_VERSION,
+  parseAndValidateProjectDocument
+} from "./projectValidation.js";
 
 export class StorySerializer {
   static toJSON(
@@ -23,6 +27,7 @@ export class StorySerializer {
     resources: ArtNetResources
   ): string {
     const exportData = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       title: story.title,
       creator: story.creator,
 
@@ -127,7 +132,9 @@ export class StorySerializer {
   }
 
   static fromJSON(json: string): ProjectData {
-    const data = JSON.parse(json);
+    const data = parseAndValidateProjectDocument(
+      json
+    );
 
     const story = new Story(
       data.title,
