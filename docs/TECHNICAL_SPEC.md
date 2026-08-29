@@ -1,7 +1,7 @@
 # ArtNet Technical Specification
 
 **Status:** Initial canonical draft  
-**Last updated:** 2026-08-26
+**Last updated:** 2026-08-28
 **Authority:** This document records the approved product direction and the implementation demonstrated in the ArtNet development history. When this document conflicts with running code, the code describes current behavior and this document must be updated. When it conflicts with `PROJECT_BIBLE.md` on product intent, the Bible takes precedence.
 
 ## 1. Purpose and status vocabulary
@@ -293,7 +293,9 @@ No visual editor is implemented in the evidenced prototype.
 - `StorySerializer.fromJSON()` recreates the story, resource library, registries, prompts and transitions, camera events, and the demonstrated state/timeline references.
 - Serialized projects declare numeric `schemaVersion: 1`.
 - Loading rejects malformed JSON, missing or unsupported schema versions, invalid title/creator fields, missing resource collection arrays, and a non-array chapter collection before runtime reconstruction begins.
-- Envelope validation failures throw `ProjectValidationError` with one or more path-specific issues.
+- Each chapter must be an object with a string title and a state array. Each state must be an object with the required scalar fields, collection arrays, and a timeline containing an event array emitted by the version 1 serializer.
+- Nested validation issues use indexed paths such as `$.chapters[0].states[1].timeline.events`, and independent issues are aggregated before loading stops.
+- Project validation failures throw `ProjectValidationError` with one or more path-specific issues.
 - A serialize/load round trip has been demonstrated for one story, two states, and registered resource examples.
 
 This is object serialization, not yet durable application persistence.
@@ -301,7 +303,7 @@ This is object serialization, not yet durable application persistence.
 ### Planned
 
 - Add a migration pipeline for future schema versions.
-- Expand validation through chapters, states, prompts, timelines, resources, required/optional fields, defaults, numeric ranges, enum values, and unknown-field behavior.
+- Expand validation through the contents of prompts, timelines, resources, and other nested collections, including required/optional fields, defaults, numeric ranges, enum values, and unknown-field behavior.
 - Validate reference integrity, state graph integrity, asset availability, and ID uniqueness before publish or play.
 - Separate project identity/version from story title and creator display name.
 - Use atomic writes or transactional storage for projects and progress.
@@ -365,9 +367,9 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, a valid version 1 envelope, malformed JSON diagnostics, missing and unsupported versions, and aggregated envelope-field errors.
+- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, required chapter fields, non-object chapters/states, and aggregated nested state errors.
 
-The automated suite currently covers the versioned project envelope only. No continuous integration pipeline is evidenced.
+The automated suite currently covers the versioned project envelope and chapter/state structure. No continuous integration pipeline is evidenced.
 
 ### Planned
 
@@ -491,7 +493,7 @@ The demonstrated format is structurally equivalent to:
 }
 ```
 
-Version 1 requires the displayed top-level metadata, five resource arrays, and chapter array before reconstruction. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema, and nested structure validation remains planned.
+Version 1 requires the displayed top-level metadata, five resource arrays, chapter structure, and state fields before reconstruction. Implemented state validation covers the scalar and collection containers emitted by the serializer; validating the objects inside those collections remains planned. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
 
 ## 19. Unresolved questions
 
@@ -522,7 +524,7 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Expand runtime validation into nested project data, reference integrity, ID uniqueness, and clear load errors for every supported field.
+1. Expand runtime validation into nested collection contents, reference integrity, ID uniqueness, and clear load errors for every supported field.
 2. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
 3. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
 4. Specify progress snapshots and deterministic restoration semantics.
