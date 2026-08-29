@@ -294,6 +294,8 @@ No visual editor is implemented in the evidenced prototype.
 - Serialized projects declare numeric `schemaVersion: 1`.
 - Loading rejects malformed JSON, missing or unsupported schema versions, invalid title/creator fields, missing resource collection arrays, and a non-array chapter collection before runtime reconstruction begins.
 - Each chapter must be an object with a string title and a state array. Each state must be an object with the required scalar fields, collection arrays, and a timeline containing an event array emitted by the version 1 serializer.
+- Prompt validation requires a supported input type, optional string target ID, and a transition containing a destination-state ID, transition-effect fields, and string triggered-audio IDs.
+- Timeline events require a numeric timestamp, supported dispatch type, and string payload ID. Camera events require a numeric trigger time and string camera-path ID.
 - Nested validation issues use indexed paths such as `$.chapters[0].states[1].timeline.events`, and independent issues are aggregated before loading stops.
 - Project validation failures throw `ProjectValidationError` with one or more path-specific issues.
 - A serialize/load round trip has been demonstrated for one story, two states, and registered resource examples.
@@ -303,7 +305,7 @@ This is object serialization, not yet durable application persistence.
 ### Planned
 
 - Add a migration pipeline for future schema versions.
-- Expand validation through the contents of prompts, timelines, resources, and other nested collections, including required/optional fields, defaults, numeric ranges, enum values, and unknown-field behavior.
+- Expand validation through resource definitions and the remaining nested state collections, including required/optional fields, defaults, numeric ranges, enum values, and unknown-field behavior.
 - Validate reference integrity, state graph integrity, asset availability, and ID uniqueness before publish or play.
 - Separate project identity/version from story title and creator display name.
 - Use atomic writes or transactional storage for projects and progress.
@@ -367,9 +369,9 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, required chapter fields, non-object chapters/states, and aggregated nested state errors.
+- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, required chapter fields, non-object chapters/states, aggregated nested state errors, and prompt/transition/timeline/camera-event contents.
 
-The automated suite currently covers the versioned project envelope and chapter/state structure. No continuous integration pipeline is evidenced.
+The automated suite currently covers the versioned project envelope, chapter/state structure, and prompt, transition, timeline-event, and camera-event contents. No continuous integration pipeline is evidenced.
 
 ### Planned
 
@@ -493,7 +495,7 @@ The demonstrated format is structurally equivalent to:
 }
 ```
 
-Version 1 requires the displayed top-level metadata, five resource arrays, chapter structure, and state fields before reconstruction. Implemented state validation covers the scalar and collection containers emitted by the serializer; validating the objects inside those collections remains planned. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
+Version 1 requires the displayed top-level metadata, five resource arrays, chapter structure, and state fields before reconstruction. Implemented nested validation covers prompts, transitions and transition effects, timeline events, and camera events; validating resource definitions and the remaining collection contents remains planned. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
 
 ## 19. Unresolved questions
 
@@ -524,12 +526,13 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Expand runtime validation into nested collection contents, reference integrity, ID uniqueness, and clear load errors for every supported field.
-2. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
-3. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
-4. Specify progress snapshots and deterministic restoration semantics.
-5. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-6. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
+1. Validate resource definitions and the remaining nested state collection contents.
+2. Validate reference integrity, destination-state IDs, and ID uniqueness with clear path-specific errors.
+3. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
+4. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
+5. Specify progress snapshots and deterministic restoration semantics.
+6. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+7. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
 
 ## 21. Canonical maintenance rules
 

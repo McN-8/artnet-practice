@@ -3,7 +3,8 @@ import test from "node:test";
 import { ArtNetResources } from "../src/artNetResources.js";
 import {
   CURRENT_SCHEMA_VERSION,
-  ProjectValidationError
+  ProjectValidationError,
+  validateProjectDocument
 } from "../src/projectValidation.js";
 import { Story } from "../src/story.js";
 import { StorySerializer } from "../src/storySerializer.js";
@@ -55,6 +56,19 @@ function validState(
     fastForwardMultiplier: 2,
     ...overrides
   };
+}
+
+function projectWithState(
+  state: Record<string, unknown>
+): Record<string, unknown> {
+  return emptyProject({
+    chapters: [
+      {
+        title: "Chapter One",
+        states: [state]
+      }
+    ]
+  });
 }
 
 test("serializer writes the current schema version", () => {
@@ -281,6 +295,187 @@ test("loader aggregates nested state field errors", () => {
         },
         {
           path: "$.chapters[0].states[0].timeline.events",
+          message: "is required"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator accepts supported nested event data", () => {
+  const state = validState({
+    prompts: [
+      {
+        inputType: "tapRight",
+        targetId: "detail-1",
+        transition: {
+          destinationStateId: "state-2",
+          effect: {
+            type: "fadeIn",
+            duration: 500,
+            allowFastForward: true,
+            locksInput: false
+          },
+          triggeredAudioCueIds: ["page-turn"]
+        }
+      }
+    ],
+    cameraEvents: [
+      {
+        triggerTime: 250,
+        cameraPathId: "opening-pan"
+      }
+    ],
+    timeline: {
+      events: [
+        {
+          timestamp: 100,
+          type: "camera",
+          payloadId: "opening-pan"
+        }
+      ]
+    }
+  });
+
+  assert.doesNotThrow(() => {
+    validateProjectDocument(projectWithState(state));
+  });
+});
+
+test("validator reports prompt and transition errors", () => {
+  const state = validState({
+    prompts: [
+      {
+        inputType: "unsupportedInput",
+        targetId: 12,
+        transition: {
+          destinationStateId: 42,
+          effect: {
+            type: false,
+            duration: "slow",
+            allowFastForward: "yes"
+          },
+          triggeredAudioCueIds: ["valid-cue", 7]
+        }
+      }
+    ]
+  });
+
+  assert.throws(
+    () => validateProjectDocument(
+      projectWithState(state)
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].states[0].prompts[0].inputType",
+          message: "must be a supported input type"
+        },
+        {
+          path: "$.chapters[0].states[0].prompts[0].targetId",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].prompts[0].transition.destinationStateId",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].prompts[0].transition.effect.type",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].prompts[0].transition.effect.duration",
+          message: "must be a number"
+        },
+        {
+          path: "$.chapters[0].states[0].prompts[0].transition.effect.allowFastForward",
+          message: "must be a boolean"
+        },
+        {
+          path: "$.chapters[0].states[0].prompts[0].transition.effect.locksInput",
+          message: "is required"
+        },
+        {
+          path: "$.chapters[0].states[0].prompts[0].transition.triggeredAudioCueIds[1]",
+          message: "must be a string"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator reports timeline-event errors", () => {
+  const state = validState({
+    timeline: {
+      events: [
+        null,
+        {
+          timestamp: "later",
+          type: "unknownEvent"
+        }
+      ]
+    }
+  });
+
+  assert.throws(
+    () => validateProjectDocument(
+      projectWithState(state)
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].states[0].timeline.events[0]",
+          message: "must be an object"
+        },
+        {
+          path: "$.chapters[0].states[0].timeline.events[1].timestamp",
+          message: "must be a number"
+        },
+        {
+          path: "$.chapters[0].states[0].timeline.events[1].type",
+          message: "must be a supported timeline event type"
+        },
+        {
+          path: "$.chapters[0].states[0].timeline.events[1].payloadId",
+          message: "is required"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator reports camera-event errors", () => {
+  const state = validState({
+    cameraEvents: [
+      null,
+      {
+        triggerTime: "later"
+      }
+    ]
+  });
+
+  assert.throws(
+    () => validateProjectDocument(
+      projectWithState(state)
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].states[0].cameraEvents[0]",
+          message: "must be an object"
+        },
+        {
+          path: "$.chapters[0].states[0].cameraEvents[1].triggerTime",
+          message: "must be a number"
+        },
+        {
+          path: "$.chapters[0].states[0].cameraEvents[1].cameraPathId",
           message: "is required"
         }
       ]);

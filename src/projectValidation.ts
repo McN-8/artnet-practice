@@ -1,3 +1,5 @@
+import { InputType } from "./inputType.js";
+
 export const CURRENT_SCHEMA_VERSION = 1;
 
 export interface ProjectValidationIssue {
@@ -46,6 +48,254 @@ function addRequiredTypeIssue(
         ? "is required"
         : `must be ${expectedType}`
   });
+}
+
+function validateStringArrayItems(
+  values: unknown[],
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  values.forEach((value, index) => {
+    if (typeof value !== "string") {
+      addRequiredTypeIssue(
+        value,
+        `${path}[${index}]`,
+        "a string",
+        issues
+      );
+    }
+  });
+}
+
+function validateTransitionEffect(
+  effect: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(effect)) {
+    addRequiredTypeIssue(
+      effect,
+      path,
+      "an object",
+      issues
+    );
+    return;
+  }
+
+  if (typeof effect.type !== "string") {
+    addRequiredTypeIssue(
+      effect.type,
+      `${path}.type`,
+      "a string",
+      issues
+    );
+  }
+
+  if (typeof effect.duration !== "number") {
+    addRequiredTypeIssue(
+      effect.duration,
+      `${path}.duration`,
+      "a number",
+      issues
+    );
+  }
+
+  for (
+    const field of ["allowFastForward", "locksInput"]
+  ) {
+    if (typeof effect[field] !== "boolean") {
+      addRequiredTypeIssue(
+        effect[field],
+        `${path}.${field}`,
+        "a boolean",
+        issues
+      );
+    }
+  }
+}
+
+function validateTransition(
+  transition: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(transition)) {
+    addRequiredTypeIssue(
+      transition,
+      path,
+      "an object",
+      issues
+    );
+    return;
+  }
+
+  if (typeof transition.destinationStateId !== "string") {
+    addRequiredTypeIssue(
+      transition.destinationStateId,
+      `${path}.destinationStateId`,
+      "a string",
+      issues
+    );
+  }
+
+  validateTransitionEffect(
+    transition.effect,
+    `${path}.effect`,
+    issues
+  );
+
+  if (!Array.isArray(transition.triggeredAudioCueIds)) {
+    addRequiredTypeIssue(
+      transition.triggeredAudioCueIds,
+      `${path}.triggeredAudioCueIds`,
+      "an array",
+      issues
+    );
+  } else {
+    validateStringArrayItems(
+      transition.triggeredAudioCueIds,
+      `${path}.triggeredAudioCueIds`,
+      issues
+    );
+  }
+}
+
+function validatePrompt(
+  prompt: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(prompt)) {
+    addRequiredTypeIssue(
+      prompt,
+      path,
+      "an object",
+      issues
+    );
+    return;
+  }
+
+  const inputTypes = Object.values(InputType);
+
+  if (
+    typeof prompt.inputType !== "string" ||
+    !inputTypes.includes(prompt.inputType as InputType)
+  ) {
+    issues.push({
+      path: `${path}.inputType`,
+      message:
+        prompt.inputType === undefined
+          ? "is required"
+          : "must be a supported input type"
+    });
+  }
+
+  if (
+    prompt.targetId !== undefined &&
+    typeof prompt.targetId !== "string"
+  ) {
+    addRequiredTypeIssue(
+      prompt.targetId,
+      `${path}.targetId`,
+      "a string",
+      issues
+    );
+  }
+
+  validateTransition(
+    prompt.transition,
+    `${path}.transition`,
+    issues
+  );
+}
+
+function validateCameraEvent(
+  cameraEvent: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(cameraEvent)) {
+    addRequiredTypeIssue(
+      cameraEvent,
+      path,
+      "an object",
+      issues
+    );
+    return;
+  }
+
+  if (typeof cameraEvent.triggerTime !== "number") {
+    addRequiredTypeIssue(
+      cameraEvent.triggerTime,
+      `${path}.triggerTime`,
+      "a number",
+      issues
+    );
+  }
+
+  if (typeof cameraEvent.cameraPathId !== "string") {
+    addRequiredTypeIssue(
+      cameraEvent.cameraPathId,
+      `${path}.cameraPathId`,
+      "a string",
+      issues
+    );
+  }
+}
+
+function validateTimelineEvent(
+  timelineEvent: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(timelineEvent)) {
+    addRequiredTypeIssue(
+      timelineEvent,
+      path,
+      "an object",
+      issues
+    );
+    return;
+  }
+
+  if (typeof timelineEvent.timestamp !== "number") {
+    addRequiredTypeIssue(
+      timelineEvent.timestamp,
+      `${path}.timestamp`,
+      "a number",
+      issues
+    );
+  }
+
+  const supportedTypes = [
+    "effect",
+    "audio",
+    "camera",
+    "panelGroup",
+    "overlay"
+  ];
+
+  if (
+    typeof timelineEvent.type !== "string" ||
+    !supportedTypes.includes(timelineEvent.type)
+  ) {
+    issues.push({
+      path: `${path}.type`,
+      message:
+        timelineEvent.type === undefined
+          ? "is required"
+          : "must be a supported timeline event type"
+    });
+  }
+
+  if (typeof timelineEvent.payloadId !== "string") {
+    addRequiredTypeIssue(
+      timelineEvent.payloadId,
+      `${path}.payloadId`,
+      "a string",
+      issues
+    );
+  }
 }
 
 function validateState(
@@ -140,6 +390,28 @@ function validateState(
     }
   }
 
+  if (Array.isArray(state.prompts)) {
+    state.prompts.forEach((prompt, promptIndex) => {
+      validatePrompt(
+        prompt,
+        `${path}.prompts[${promptIndex}]`,
+        issues
+      );
+    });
+  }
+
+  if (Array.isArray(state.cameraEvents)) {
+    state.cameraEvents.forEach(
+      (cameraEvent, cameraEventIndex) => {
+        validateCameraEvent(
+          cameraEvent,
+          `${path}.cameraEvents[${cameraEventIndex}]`,
+          issues
+        );
+      }
+    );
+  }
+
   if (!isRecord(state.timeline)) {
     addRequiredTypeIssue(
       state.timeline,
@@ -147,13 +419,25 @@ function validateState(
       "an object",
       issues
     );
-  } else if (!Array.isArray(state.timeline.events)) {
-    addRequiredTypeIssue(
-      state.timeline.events,
-      `${path}.timeline.events`,
-      "an array",
-      issues
-    );
+  } else {
+    if (!Array.isArray(state.timeline.events)) {
+      addRequiredTypeIssue(
+        state.timeline.events,
+        `${path}.timeline.events`,
+        "an array",
+        issues
+      );
+    } else {
+      state.timeline.events.forEach(
+        (timelineEvent, timelineEventIndex) => {
+          validateTimelineEvent(
+            timelineEvent,
+            `${path}.timeline.events[${timelineEventIndex}]`,
+            issues
+          );
+        }
+      );
+    }
   }
 }
 
