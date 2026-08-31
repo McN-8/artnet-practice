@@ -1,7 +1,7 @@
 # ArtNet Technical Specification
 
 **Status:** Initial canonical draft  
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-01
 **Authority:** This document records the approved product direction and the implementation demonstrated in the ArtNet development history. When this document conflicts with running code, the code describes current behavior and this document must be updated. When it conflicts with `PROJECT_BIBLE.md` on product intent, the Bible takes precedence.
 
 ## 1. Purpose and status vocabulary
@@ -93,12 +93,12 @@ The editor and player should consume the same domain rules and serialization con
 - Top-level reusable resources have stable IDs and a single canonical serialized definition.
 - State effects, state audio cues, transition-triggered audio cues, state camera paths, camera-event paths, state panel groups, and typed timeline payloads serialize as IDs and are resolved back to runtime objects by the loader.
 - The loader uses domain methods such as `addEffect`, `addAudioCue`, `addCameraPath`, and `addPanelGroup` to reconstruct state membership.
-- Missing resources are expected to be diagnosable rather than silently invented.
+- Missing typed resources and transition destinations are rejected with path-specific validation errors before reconstruction.
 
 ### 3.3 Known normalization gaps — Planned
 
 - It has not been demonstrated that overlays can be directly attached to a state outside timeline references.
-- IDs are used as references, but formal uniqueness scope, allowed characters, and rename/migration semantics are not yet specified.
+- Resource IDs are unique within each typed registry and state IDs are unique across the story. Allowed characters and rename/migration semantics are not yet specified.
 
 ## 4. Story hierarchy and reading model
 
@@ -298,6 +298,9 @@ No visual editor is implemented in the evidenced prototype.
 - Timeline events require a numeric timestamp, supported dispatch type, and string payload ID. Camera events require a numeric trigger time and string camera-path ID.
 - Resource validation covers effects, audio cues, overlays, camera paths with focal points, and panel groups with reveals. Each resource entry must match the field types consumed by reconstruction.
 - Remaining state validation covers zoom regions, assets, camera behaviors, camera focal points, resource-ID arrays, and audio-layer name arrays.
+- Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
+- Duplicate definitions are rejected within each typed resource registry, and duplicate state IDs are rejected across all chapters.
+- Integrity checks run only after structural/type validation succeeds, avoiding secondary missing-reference errors caused by malformed fields.
 - Nested validation issues use indexed paths such as `$.chapters[0].states[1].timeline.events`, and independent issues are aggregated before loading stops.
 - Project validation failures throw `ProjectValidationError` with one or more path-specific issues.
 - A serialize/load round trip has been demonstrated for one story, two states, and registered resource examples.
@@ -308,7 +311,7 @@ This is object serialization, not yet durable application persistence.
 
 - Add a migration pipeline for future schema versions.
 - Define numeric ranges, supported value catalogs beyond current input/timeline discriminators, optional-field defaults, and unknown-field behavior.
-- Validate reference integrity, state graph integrity, asset availability, and ID uniqueness before publish or play.
+- Expand state-graph validation beyond destination existence, and validate asset availability before publish or play.
 - Separate project identity/version from story title and creator display name.
 - Use atomic writes or transactional storage for projects and progress.
 - Preserve backward compatibility for published stories according to a documented support policy.
@@ -371,9 +374,9 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, required chapter fields, non-object chapters/states, aggregated nested state errors, prompt/transition/timeline/camera-event contents, resource definitions, and remaining state-owned content.
+- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, and duplicate resource/state IDs.
 
-The automated suite currently covers required structure and field types across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
+The automated suite currently covers required structure, field types, reference integrity, and implemented uniqueness scopes across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
 
 ### Planned
 
@@ -497,7 +500,7 @@ The demonstrated format is structurally equivalent to:
 }
 ```
 
-Version 1 requires the displayed top-level metadata, five typed resource arrays, chapter structure, state fields, and the nested contents demonstrated by the serializer before reconstruction. Structural/type validation now covers the complete demonstrated shape; semantic ranges, reference existence, and ID uniqueness remain planned. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
+Version 1 requires the displayed top-level metadata, five typed resource arrays, chapter structure, state fields, and the nested contents demonstrated by the serializer before reconstruction. Structural/type validation covers the complete demonstrated shape. Reference integrity covers the typed registries and transition destinations, with resource IDs unique per registry and state IDs unique across the story; semantic ranges remain planned. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
 
 ## 19. Unresolved questions
 
@@ -528,8 +531,8 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Validate reference integrity, destination-state IDs, and ID uniqueness with clear path-specific errors.
-2. Define numeric ranges, supported value catalogs, defaults, and unknown-field behavior.
+1. Define numeric ranges, supported value catalogs, defaults, and unknown-field behavior.
+2. Expand graph validation beyond destination existence and define chapter entry, reachability, and intentional-ending rules.
 3. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
 4. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
 5. Specify progress snapshots and deterministic restoration semantics.

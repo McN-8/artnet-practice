@@ -779,6 +779,259 @@ function validateChapter(
   });
 }
 
+function collectUniqueIds(
+  values: unknown[],
+  path: string,
+  scope: string,
+  issues: ProjectValidationIssue[]
+): Set<string> {
+  const ids = new Set<string>();
+
+  values.forEach((value, index) => {
+    if (!isRecord(value) || typeof value.id !== "string") {
+      return;
+    }
+
+    if (ids.has(value.id)) {
+      issues.push({
+        path: `${path}[${index}].id`,
+        message:
+          `must be unique within ${scope}; ` +
+          `duplicates "${value.id}"`
+      });
+    } else {
+      ids.add(value.id);
+    }
+  });
+
+  return ids;
+}
+
+function validateReference(
+  value: unknown,
+  path: string,
+  ids: Set<string> | undefined,
+  resourceType: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (
+    typeof value === "string" &&
+    ids &&
+    !ids.has(value)
+  ) {
+    issues.push({
+      path,
+      message:
+        `references missing ${resourceType} "${value}"`
+    });
+  }
+}
+
+function validateProjectIntegrity(
+  data: Record<string, unknown>,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(data.resources)) {
+    return;
+  }
+
+  const resourceCollections = [
+    "effects",
+    "audio",
+    "overlays",
+    "cameraPaths",
+    "panelGroups"
+  ] as const;
+
+  const resourceIds: Partial<
+    Record<typeof resourceCollections[number], Set<string>>
+  > = {};
+
+  for (const collection of resourceCollections) {
+    const values = data.resources[collection];
+
+    if (Array.isArray(values)) {
+      resourceIds[collection] = collectUniqueIds(
+        values,
+        `$.resources.${collection}`,
+        `resources.${collection}`,
+        issues
+      );
+    }
+  }
+
+  const overlays = data.resources.overlays;
+
+  if (Array.isArray(overlays)) {
+    overlays.forEach((overlay, overlayIndex) => {
+      if (isRecord(overlay)) {
+        validateReference(
+          overlay.pathId,
+          `$.resources.overlays[${overlayIndex}].pathId`,
+          resourceIds.cameraPaths,
+          "camera path",
+          issues
+        );
+      }
+    });
+  }
+
+  if (!Array.isArray(data.chapters)) {
+    return;
+  }
+
+  const stateIds = new Set<string>();
+  const states: Array<{
+    value: Record<string, unknown>;
+    path: string;
+  }> = [];
+
+  data.chapters.forEach((chapter, chapterIndex) => {
+    if (!isRecord(chapter) || !Array.isArray(chapter.states)) {
+      return;
+    }
+
+    chapter.states.forEach((state, stateIndex) => {
+      if (!isRecord(state)) {
+        return;
+      }
+
+      const path =
+        `$.chapters[${chapterIndex}].states[${stateIndex}]`;
+
+      states.push({ value: state, path });
+
+      if (typeof state.id !== "string") {
+        return;
+      }
+
+      if (stateIds.has(state.id)) {
+        issues.push({
+          path: `${path}.id`,
+          message:
+            `must be unique across story states; ` +
+            `duplicates "${state.id}"`
+        });
+      } else {
+        stateIds.add(state.id);
+      }
+    });
+  });
+
+  const stateReferenceCollections = [
+    ["effectIds", resourceIds.effects, "effect"],
+    ["audioCueIds", resourceIds.audio, "audio cue"],
+    ["cameraPathIds", resourceIds.cameraPaths, "camera path"],
+    ["panelGroupIds", resourceIds.panelGroups, "panel group"]
+  ] as const;
+
+  for (const state of states) {
+    for (
+      const [field, ids, resourceType]
+      of stateReferenceCollections
+    ) {
+      const values = state.value[field];
+
+      if (Array.isArray(values)) {
+        values.forEach((value, index) => {
+          validateReference(
+            value,
+            `${state.path}.${field}[${index}]`,
+            ids,
+            resourceType,
+            issues
+          );
+        });
+      }
+    }
+
+    const prompts = state.value.prompts;
+
+    if (Array.isArray(prompts)) {
+      prompts.forEach((prompt, promptIndex) => {
+        if (!isRecord(prompt) || !isRecord(prompt.transition)) {
+          return;
+        }
+
+        const transitionPath =
+          `${state.path}.prompts[${promptIndex}].transition`;
+
+        validateReference(
+          prompt.transition.destinationStateId,
+          `${transitionPath}.destinationStateId`,
+          stateIds,
+          "destination state",
+          issues
+        );
+
+        const audioIds =
+          prompt.transition.triggeredAudioCueIds;
+
+        if (Array.isArray(audioIds)) {
+          audioIds.forEach((audioId, audioIndex) => {
+            validateReference(
+              audioId,
+              `${transitionPath}.triggeredAudioCueIds[${audioIndex}]`,
+              resourceIds.audio,
+              "audio cue",
+              issues
+            );
+          });
+        }
+      });
+    }
+
+    const cameraEvents = state.value.cameraEvents;
+
+    if (Array.isArray(cameraEvents)) {
+      cameraEvents.forEach((cameraEvent, cameraEventIndex) => {
+        if (isRecord(cameraEvent)) {
+          validateReference(
+            cameraEvent.cameraPathId,
+            `${state.path}.cameraEvents[${cameraEventIndex}].cameraPathId`,
+            resourceIds.cameraPaths,
+            "camera path",
+            issues
+          );
+        }
+      });
+    }
+
+    const timeline = state.value.timeline;
+
+    if (isRecord(timeline) && Array.isArray(timeline.events)) {
+      const timelineResources: Record<
+        string,
+        [Set<string> | undefined, string]
+      > = {
+        effect: [resourceIds.effects, "effect"],
+        audio: [resourceIds.audio, "audio cue"],
+        camera: [resourceIds.cameraPaths, "camera path"],
+        panelGroup: [resourceIds.panelGroups, "panel group"],
+        overlay: [resourceIds.overlays, "overlay"]
+      };
+
+      timeline.events.forEach((event, eventIndex) => {
+        if (!isRecord(event) || typeof event.type !== "string") {
+          return;
+        }
+
+        const resource = timelineResources[event.type];
+
+        if (resource) {
+          validateReference(
+            event.payloadId,
+            `${state.path}.timeline.events[${eventIndex}].payloadId`,
+            resource[0],
+            resource[1],
+            issues
+          );
+        }
+      });
+    }
+  }
+}
+
 export function validateProjectDocument(
   data: unknown
 ): asserts data is Record<string, any> {
@@ -879,6 +1132,10 @@ export function validateProjectDocument(
         issues
       );
     });
+  }
+
+  if (issues.length === 0) {
+    validateProjectIntegrity(data, issues);
   }
 
   if (issues.length > 0) {
