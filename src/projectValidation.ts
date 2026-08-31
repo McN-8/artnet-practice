@@ -67,6 +67,260 @@ function validateStringArrayItems(
   });
 }
 
+interface ObjectFieldTypes {
+  strings?: string[];
+  numbers?: string[];
+  booleans?: string[];
+}
+
+function validateObjectFields(
+  value: unknown,
+  path: string,
+  fieldTypes: ObjectFieldTypes,
+  issues: ProjectValidationIssue[]
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) {
+    addRequiredTypeIssue(
+      value,
+      path,
+      "an object",
+      issues
+    );
+    return undefined;
+  }
+
+  const expectedFields = [
+    [fieldTypes.strings ?? [], "string"],
+    [fieldTypes.numbers ?? [], "number"],
+    [fieldTypes.booleans ?? [], "boolean"]
+  ] as const;
+
+  for (const [fields, type] of expectedFields) {
+    for (const field of fields) {
+      if (typeof value[field] !== type) {
+        addRequiredTypeIssue(
+          value[field],
+          `${path}.${field}`,
+          `a ${type}`,
+          issues
+        );
+      }
+    }
+  }
+
+  return value;
+}
+
+function validateEffectResource(
+  effect: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    effect,
+    path,
+    {
+      strings: ["id", "type", "trigger"],
+      numbers: ["duration"]
+    },
+    issues
+  );
+}
+
+function validateAudioResource(
+  audio: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    audio,
+    path,
+    {
+      strings: [
+        "id",
+        "file",
+        "type",
+        "trigger",
+        "layerGroup"
+      ],
+      numbers: [
+        "volume",
+        "fadeInDuration",
+        "fadeOutDuration"
+      ],
+      booleans: ["loop", "persistsAcrossStates"]
+    },
+    issues
+  );
+}
+
+function validateCameraFocalPoint(
+  focalPoint: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    focalPoint,
+    path,
+    {
+      strings: ["id"],
+      numbers: ["x", "y", "zoomLevel"]
+    },
+    issues
+  );
+}
+
+function validateCameraPathResource(
+  cameraPath: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  const value = validateObjectFields(
+    cameraPath,
+    path,
+    {
+      strings: ["id", "easing"],
+      numbers: ["duration", "speedMultiplier"]
+    },
+    issues
+  );
+
+  if (!value) {
+    return;
+  }
+
+  validateCameraFocalPoint(
+    value.startPoint,
+    `${path}.startPoint`,
+    issues
+  );
+  validateCameraFocalPoint(
+    value.endPoint,
+    `${path}.endPoint`,
+    issues
+  );
+}
+
+function validateOverlayResource(
+  overlay: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    overlay,
+    path,
+    {
+      strings: ["id", "asset", "pathId"],
+      numbers: ["rotation", "duration"],
+      booleans: ["followPath"]
+    },
+    issues
+  );
+}
+
+function validatePanelReveal(
+  reveal: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    reveal,
+    path,
+    {
+      strings: ["panelId"],
+      numbers: [
+        "delay",
+        "x",
+        "y",
+        "width",
+        "height",
+        "rotation"
+      ]
+    },
+    issues
+  );
+}
+
+function validatePanelGroupResource(
+  panelGroup: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  const value = validateObjectFields(
+    panelGroup,
+    path,
+    { strings: ["id"] },
+    issues
+  );
+
+  if (!value) {
+    return;
+  }
+
+  if (!Array.isArray(value.reveals)) {
+    addRequiredTypeIssue(
+      value.reveals,
+      `${path}.reveals`,
+      "an array",
+      issues
+    );
+    return;
+  }
+
+  value.reveals.forEach((reveal, revealIndex) => {
+    validatePanelReveal(
+      reveal,
+      `${path}.reveals[${revealIndex}]`,
+      issues
+    );
+  });
+}
+
+function validateZoomRegion(
+  zoomRegion: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    zoomRegion,
+    path,
+    {
+      strings: ["id", "description"],
+      numbers: ["x", "y", "width", "height"]
+    },
+    issues
+  );
+}
+
+function validateAsset(
+  asset: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    asset,
+    path,
+    { strings: ["file", "type"] },
+    issues
+  );
+}
+
+function validateCameraBehavior(
+  cameraBehavior: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  validateObjectFields(
+    cameraBehavior,
+    path,
+    {
+      strings: ["type"],
+      numbers: ["duration"]
+    },
+    issues
+  );
+}
+
 function validateTransitionEffect(
   effect: unknown,
   path: string,
@@ -400,6 +654,47 @@ function validateState(
     });
   }
 
+  const stringArrayFields = [
+    "audioCueIds",
+    "audioLayersToActivate",
+    "audioLayersToDeactivate",
+    "effectIds",
+    "cameraPathIds",
+    "panelGroupIds"
+  ];
+
+  for (const field of stringArrayFields) {
+    if (Array.isArray(state[field])) {
+      validateStringArrayItems(
+        state[field],
+        `${path}.${field}`,
+        issues
+      );
+    }
+  }
+
+  const objectCollectionValidators = [
+    ["zoomRegions", validateZoomRegion],
+    ["assets", validateAsset],
+    ["cameraBehaviors", validateCameraBehavior],
+    ["cameraFocalPoints", validateCameraFocalPoint]
+  ] as const;
+
+  for (
+    const [field, validator]
+    of objectCollectionValidators
+  ) {
+    if (Array.isArray(state[field])) {
+      state[field].forEach((value, index) => {
+        validator(
+          value,
+          `${path}.${field}[${index}]`,
+          issues
+        );
+      });
+    }
+  }
+
   if (Array.isArray(state.cameraEvents)) {
     state.cameraEvents.forEach(
       (cameraEvent, cameraEventIndex) => {
@@ -541,6 +836,31 @@ export function validateProjectDocument(
         issues.push({
           path: `$.resources.${collection}`,
           message: "must be an array"
+        });
+      }
+    }
+
+    const resourceValidators = [
+      ["effects", validateEffectResource],
+      ["audio", validateAudioResource],
+      ["overlays", validateOverlayResource],
+      ["cameraPaths", validateCameraPathResource],
+      ["panelGroups", validatePanelGroupResource]
+    ] as const;
+
+    for (
+      const [collection, validator]
+      of resourceValidators
+    ) {
+      const resources = data.resources[collection];
+
+      if (Array.isArray(resources)) {
+        resources.forEach((resource, resourceIndex) => {
+          validator(
+            resource,
+            `$.resources.${collection}[${resourceIndex}]`,
+            issues
+          );
         });
       }
     }

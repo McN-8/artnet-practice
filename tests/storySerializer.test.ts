@@ -58,6 +58,79 @@ function validState(
   };
 }
 
+function validResources(): Record<string, unknown[]> {
+  return {
+    effects: [
+      {
+        id: "leaf-drift",
+        type: "floatingLeaves",
+        trigger: "onEnterState",
+        duration: 5000
+      }
+    ],
+    audio: [
+      {
+        id: "forest-ambience",
+        file: "forest.mp3",
+        type: "ambience",
+        loop: true,
+        volume: 0.8,
+        trigger: "onEnterState",
+        persistsAcrossStates: true,
+        fadeInDuration: 500,
+        fadeOutDuration: 500,
+        layerGroup: "forest"
+      }
+    ],
+    overlays: [
+      {
+        id: "leaf-overlay",
+        asset: "leaf.png",
+        pathId: "opening-pan",
+        rotation: 0,
+        duration: 1000,
+        followPath: true
+      }
+    ],
+    cameraPaths: [
+      {
+        id: "opening-pan",
+        startPoint: {
+          id: "start",
+          x: 0,
+          y: 0,
+          zoomLevel: 1
+        },
+        endPoint: {
+          id: "end",
+          x: 100,
+          y: 100,
+          zoomLevel: 2
+        },
+        duration: 1000,
+        easing: "easeInOut",
+        speedMultiplier: 1
+      }
+    ],
+    panelGroups: [
+      {
+        id: "opening-panels",
+        reveals: [
+          {
+            panelId: "panel-1",
+            delay: 0,
+            x: 0,
+            y: 0,
+            width: 800,
+            height: 450,
+            rotation: 0
+          }
+        ]
+      }
+    ]
+  };
+}
+
 function projectWithState(
   state: Record<string, unknown>
 ): Record<string, unknown> {
@@ -477,6 +550,224 @@ test("validator reports camera-event errors", () => {
         {
           path: "$.chapters[0].states[0].cameraEvents[1].cameraPathId",
           message: "is required"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator accepts resource and remaining state data", () => {
+  const state = validState({
+    zoomRegions: [
+      {
+        id: "detail",
+        x: 10,
+        y: 20,
+        width: 100,
+        height: 80,
+        description: "A hidden detail"
+      }
+    ],
+    audioCueIds: ["forest-ambience"],
+    audioLayersToActivate: ["forest"],
+    audioLayersToDeactivate: ["interior"],
+    effectIds: ["leaf-drift"],
+    assets: [{ file: "forest.png", type: "image" }],
+    cameraBehaviors: [
+      { type: "slowPan", duration: 1000 }
+    ],
+    cameraFocalPoints: [
+      { id: "focus", x: 10, y: 20, zoomLevel: 1.5 }
+    ],
+    cameraPathIds: ["opening-pan"],
+    panelGroupIds: ["opening-panels"]
+  });
+
+  assert.doesNotThrow(() => {
+    validateProjectDocument(
+      emptyProject({
+        resources: validResources(),
+        chapters: [
+          { title: "Chapter One", states: [state] }
+        ]
+      })
+    );
+  });
+});
+
+test("validator reports resource-definition errors", () => {
+  const resources = validResources();
+
+  resources.effects = [
+    {
+      id: "effect",
+      type: "glow",
+      trigger: "onEnterState",
+      duration: "long"
+    }
+  ];
+  resources.audio = [
+    {
+      id: "audio",
+      file: "sound.mp3",
+      type: "music",
+      loop: "yes",
+      volume: 1,
+      trigger: "onEnterState",
+      persistsAcrossStates: false,
+      fadeInDuration: 0,
+      fadeOutDuration: 0,
+      layerGroup: "music"
+    }
+  ];
+  resources.overlays = [
+    {
+      id: "overlay",
+      asset: "overlay.png",
+      pathId: "path",
+      rotation: 0,
+      duration: 100,
+      followPath: 1
+    }
+  ];
+  resources.cameraPaths = [
+    {
+      id: "path",
+      startPoint: {
+        id: "start",
+        x: "left",
+        y: 0,
+        zoomLevel: 1
+      },
+      endPoint: {
+        id: "end",
+        x: 1,
+        y: 1,
+        zoomLevel: 2
+      },
+      duration: 100,
+      easing: "linear",
+      speedMultiplier: 1
+    }
+  ];
+  resources.panelGroups = [
+    {
+      id: "group",
+      reveals: [
+        {
+          panelId: "panel",
+          delay: 0,
+          x: 0,
+          y: 0,
+          width: "wide",
+          height: 100,
+          rotation: 0
+        }
+      ]
+    }
+  ];
+
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({ resources })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.resources.effects[0].duration",
+          message: "must be a number"
+        },
+        {
+          path: "$.resources.audio[0].loop",
+          message: "must be a boolean"
+        },
+        {
+          path: "$.resources.overlays[0].followPath",
+          message: "must be a boolean"
+        },
+        {
+          path: "$.resources.cameraPaths[0].startPoint.x",
+          message: "must be a number"
+        },
+        {
+          path: "$.resources.panelGroups[0].reveals[0].width",
+          message: "must be a number"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator reports remaining state-content errors", () => {
+  const state = validState({
+    zoomRegions: [
+      {
+        id: "detail",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100
+      }
+    ],
+    audioCueIds: [4],
+    audioLayersToActivate: ["valid", false],
+    effectIds: [null],
+    assets: [null],
+    cameraBehaviors: [
+      { type: "pan", duration: "slow" }
+    ],
+    cameraFocalPoints: [
+      { id: "focus", x: 0, y: "down", zoomLevel: 1 }
+    ],
+    cameraPathIds: [{}],
+    panelGroupIds: ["valid", 9]
+  });
+
+  assert.throws(
+    () => validateProjectDocument(
+      projectWithState(state)
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].states[0].audioCueIds[0]",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].audioLayersToActivate[1]",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].effectIds[0]",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].cameraPathIds[0]",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].panelGroupIds[1]",
+          message: "must be a string"
+        },
+        {
+          path: "$.chapters[0].states[0].zoomRegions[0].description",
+          message: "is required"
+        },
+        {
+          path: "$.chapters[0].states[0].assets[0]",
+          message: "must be an object"
+        },
+        {
+          path: "$.chapters[0].states[0].cameraBehaviors[0].duration",
+          message: "must be a number"
+        },
+        {
+          path: "$.chapters[0].states[0].cameraFocalPoints[0].y",
+          message: "must be a number"
         }
       ]);
       return true;
