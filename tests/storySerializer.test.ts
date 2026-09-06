@@ -480,10 +480,6 @@ test("validator reports prompt and transition errors", () => {
           message: "must be a boolean"
         },
         {
-          path: "$.chapters[0].states[0].prompts[0].transition.effect.locksInput",
-          message: "is required"
-        },
-        {
           path: "$.chapters[0].states[0].prompts[0].transition.triggeredAudioCueIds[1]",
           message: "must be a string"
         }
@@ -1007,6 +1003,260 @@ test("validator resolves timeline payloads by event type", () => {
         {
           path: "$.chapters[0].states[0].timeline.events[4].payloadId",
           message: "references missing overlay \"missing-overlay\""
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator applies version 1 optional defaults", () => {
+  const document = emptyProject({
+    resources: {
+      effects: [],
+      audio: [
+        {
+          id: "cue",
+          file: "cue.mp3",
+          type: "music",
+          loop: false,
+          volume: 1,
+          trigger: "onEnterState"
+        }
+      ],
+      overlays: [
+        {
+          id: "overlay",
+          asset: "overlay.png",
+          pathId: "path"
+        }
+      ],
+      cameraPaths: [
+        {
+          id: "path",
+          startPoint: {
+            id: "start",
+            x: 0,
+            y: 0,
+            zoomLevel: 1
+          },
+          endPoint: {
+            id: "end",
+            x: 10,
+            y: 10,
+            zoomLevel: 1
+          },
+          duration: 100,
+          easing: "linear"
+        }
+      ],
+      panelGroups: [
+        {
+          id: "group",
+          reveals: [{ panelId: "panel" }]
+        }
+      ]
+    },
+    chapters: [
+      {
+        title: "Chapter One",
+        states: [
+          {
+            id: "state-1",
+            image: "page.png",
+            dialogue: "Hello",
+            prompts: [
+              {
+                inputType: "tapRight",
+                transition: {
+                  destinationStateId: "state-1",
+                  effect: {
+                    type: "fadeIn",
+                    duration: 100
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  });
+
+  const project = StorySerializer.fromJSON(
+    JSON.stringify(document)
+  );
+  const loadedState =
+    project.story.chapters[0]?.states[0];
+  const loadedTransition =
+    loadedState?.prompts[0]?.transition;
+
+  assert.equal(
+    project.resources.audio.get("cue")?.layerGroup,
+    "default"
+  );
+  assert.equal(
+    project.resources.cameraPaths.get("path")
+      ?.speedMultiplier,
+    1
+  );
+  assert.equal(
+    project.resources.overlays.get("overlay")?.followPath,
+    true
+  );
+  assert.equal(
+    project.resources.panelGroups.get("group")
+      ?.reveals[0]?.width,
+    100
+  );
+  assert.deepEqual(
+    loadedState?.timeline.events,
+    []
+  );
+  assert.equal(
+    loadedState?.fastForwardMultiplier,
+    2
+  );
+  assert.equal(
+    loadedTransition?.effect.locksInput,
+    false
+  );
+  assert.deepEqual(
+    loadedTransition?.triggeredAudioCues,
+    []
+  );
+});
+
+test("validator reports numeric range errors", () => {
+  const resources = validResources();
+  (resources.effects?.[0] as any).duration = -1;
+  (resources.audio?.[0] as any).volume = 1.5;
+  (resources.audio?.[0] as any).fadeInDuration = -1;
+  (resources.cameraPaths?.[0] as any).startPoint.zoomLevel = 0;
+  (resources.cameraPaths?.[0] as any).speedMultiplier = 0;
+  (resources.panelGroups?.[0] as any).reveals[0].width = 0;
+
+  const state = validState({
+    autoAdvanceDelay: -1,
+    fastForwardMultiplier: 0.5,
+    zoomRegions: [
+      {
+        id: "detail",
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 10,
+        description: "detail"
+      }
+    ],
+    cameraEvents: [
+      { triggerTime: -1, cameraPathId: "opening-pan" }
+    ],
+    timeline: {
+      events: [
+        {
+          timestamp: -1,
+          type: "effect",
+          payloadId: "leaf-drift"
+        }
+      ]
+    }
+  });
+
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({
+        resources,
+        chapters: [
+          { title: "Chapter One", states: [state] }
+        ]
+      })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(
+        error.issues.map((issue) => issue.path),
+        [
+          "$.resources.effects[0].duration",
+          "$.resources.audio[0].volume",
+          "$.resources.audio[0].fadeInDuration",
+          "$.resources.cameraPaths[0].startPoint.zoomLevel",
+          "$.resources.cameraPaths[0].speedMultiplier",
+          "$.resources.panelGroups[0].reveals[0].width",
+          "$.chapters[0].states[0].autoAdvanceDelay",
+          "$.chapters[0].states[0].fastForwardMultiplier",
+          "$.chapters[0].states[0].zoomRegions[0].width",
+          "$.chapters[0].states[0].cameraEvents[0].triggerTime",
+          "$.chapters[0].states[0].timeline.events[0].timestamp"
+        ]
+      );
+      return true;
+    }
+  );
+});
+
+test("validator rejects unsupported version 1 catalog values", () => {
+  const resources = validResources();
+  (resources.audio?.[0] as any).type = "podcast";
+
+  const state = validState({
+    assets: [{ file: "movie.mp4", type: "video" }]
+  });
+
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({
+        resources,
+        chapters: [
+          { title: "Chapter One", states: [state] }
+        ]
+      })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.resources.audio[0].type",
+          message: "must be a supported audio type: music, ambience, soundEffect, voice"
+        },
+        {
+          path: "$.chapters[0].states[0].assets[0].type",
+          message: "must be a supported asset type: image, audio"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator rejects unknown version 1 fields", () => {
+  const resources = validResources();
+  (resources.effects?.[0] as any).editorColor = "green";
+  const state = validState({ editorNote: "not versioned" });
+  const document = emptyProject({
+    resources,
+    chapters: [
+      { title: "Chapter One", states: [state] }
+    ],
+    futureField: true
+  });
+
+  assert.throws(
+    () => validateProjectDocument(document),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.futureField",
+          message: "is not allowed in schema version 1"
+        },
+        {
+          path: "$.resources.effects[0].editorColor",
+          message: "is not allowed in schema version 1"
+        },
+        {
+          path: "$.chapters[0].states[0].editorNote",
+          message: "is not allowed in schema version 1"
         }
       ]);
       return true;

@@ -7,6 +7,21 @@ export interface ProjectValidationIssue {
   message: string;
 }
 
+const ASSET_TYPES = ["image", "audio"] as const;
+const AUDIO_TYPES = [
+  "music",
+  "ambience",
+  "soundEffect",
+  "voice"
+] as const;
+const TIMELINE_EVENT_TYPES = [
+  "effect",
+  "audio",
+  "camera",
+  "panelGroup",
+  "overlay"
+] as const;
+
 export class ProjectValidationError extends Error {
   issues: ProjectValidationIssue[];
 
@@ -33,6 +48,192 @@ function isRecord(
     value !== null &&
     !Array.isArray(value)
   );
+}
+
+function applyDefaults(
+  value: Record<string, unknown>,
+  defaults: Record<string, unknown>
+): void {
+  for (const [field, defaultValue] of Object.entries(defaults)) {
+    if (value[field] === undefined) {
+      value[field] = defaultValue;
+    }
+  }
+}
+
+function applyProjectDefaults(data: unknown): void {
+  if (!isRecord(data)) {
+    return;
+  }
+
+  if (isRecord(data.resources)) {
+    if (Array.isArray(data.resources.audio)) {
+      data.resources.audio.forEach((audio) => {
+        if (isRecord(audio)) {
+          applyDefaults(audio, {
+            persistsAcrossStates: false,
+            fadeInDuration: 0,
+            fadeOutDuration: 0,
+            layerGroup: "default"
+          });
+        }
+      });
+    }
+
+    if (Array.isArray(data.resources.overlays)) {
+      data.resources.overlays.forEach((overlay) => {
+        if (isRecord(overlay)) {
+          applyDefaults(overlay, {
+            rotation: 0,
+            duration: 1000,
+            followPath: true
+          });
+        }
+      });
+    }
+
+    if (Array.isArray(data.resources.cameraPaths)) {
+      data.resources.cameraPaths.forEach((cameraPath) => {
+        if (isRecord(cameraPath)) {
+          applyDefaults(cameraPath, {
+            speedMultiplier: 1
+          });
+        }
+      });
+    }
+
+    if (Array.isArray(data.resources.panelGroups)) {
+      data.resources.panelGroups.forEach((panelGroup) => {
+        if (!isRecord(panelGroup) || !Array.isArray(panelGroup.reveals)) {
+          return;
+        }
+
+        panelGroup.reveals.forEach((reveal) => {
+          if (isRecord(reveal)) {
+            applyDefaults(reveal, {
+              delay: 0,
+              x: 0,
+              y: 0,
+              width: 100,
+              height: 100,
+              rotation: 0
+            });
+          }
+        });
+      });
+    }
+  }
+
+  if (!Array.isArray(data.chapters)) {
+    return;
+  }
+
+  data.chapters.forEach((chapter) => {
+    if (!isRecord(chapter) || !Array.isArray(chapter.states)) {
+      return;
+    }
+
+    chapter.states.forEach((state) => {
+      if (!isRecord(state)) {
+        return;
+      }
+
+      applyDefaults(state, {
+        zoomEnabled: false,
+        zoomInteractive: false,
+        zoomRegions: [],
+        audioCueIds: [],
+        audioLayersToActivate: [],
+        audioLayersToDeactivate: [],
+        prompts: [],
+        effectIds: [],
+        assets: [],
+        cameraBehaviors: [],
+        cameraFocalPoints: [],
+        cameraPathIds: [],
+        cameraEvents: [],
+        panelGroupIds: [],
+        timeline: { events: [] },
+        autoAdvanceEnabled: false,
+        autoAdvanceDelay: 0,
+        fastForwardEnabled: true,
+        fastForwardMultiplier: 2
+      });
+
+      if (Array.isArray(state.prompts)) {
+        state.prompts.forEach((prompt) => {
+          if (!isRecord(prompt) || !isRecord(prompt.transition)) {
+            return;
+          }
+
+          applyDefaults(prompt.transition, {
+            triggeredAudioCueIds: []
+          });
+
+          if (isRecord(prompt.transition.effect)) {
+            applyDefaults(prompt.transition.effect, {
+              allowFastForward: true,
+              locksInput: false
+            });
+          }
+        });
+      }
+    });
+  });
+}
+
+function addUnknownFieldIssues(
+  value: Record<string, unknown>,
+  path: string,
+  allowedFields: readonly string[],
+  issues: ProjectValidationIssue[]
+): void {
+  const allowed = new Set(allowedFields);
+
+  for (const field of Object.keys(value)) {
+    if (!allowed.has(field)) {
+      issues.push({
+        path: `${path}.${field}`,
+        message: "is not allowed in schema version 1"
+      });
+    }
+  }
+}
+
+function validateNumberRange(
+  value: unknown,
+  path: string,
+  predicate: (number: number) => boolean,
+  requirement: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    !predicate(value)
+  ) {
+    issues.push({ path, message: requirement });
+  }
+}
+
+function validateCatalogValue(
+  value: unknown,
+  path: string,
+  supportedValues: readonly string[],
+  catalogName: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (
+    typeof value === "string" &&
+    !supportedValues.includes(value)
+  ) {
+    issues.push({
+      path,
+      message:
+        `must be a supported ${catalogName}: ` +
+        supportedValues.join(", ")
+    });
+  }
 }
 
 function addRequiredTypeIssue(
@@ -71,6 +272,7 @@ interface ObjectFieldTypes {
   strings?: string[];
   numbers?: string[];
   booleans?: string[];
+  additional?: string[];
 }
 
 function validateObjectFields(
@@ -104,9 +306,29 @@ function validateObjectFields(
           `a ${type}`,
           issues
         );
+      } else if (
+        type === "number" &&
+        !Number.isFinite(value[field])
+      ) {
+        issues.push({
+          path: `${path}.${field}`,
+          message: "must be a finite number"
+        });
       }
     }
   }
+
+  addUnknownFieldIssues(
+    value,
+    path,
+    [
+      ...(fieldTypes.strings ?? []),
+      ...(fieldTypes.numbers ?? []),
+      ...(fieldTypes.booleans ?? []),
+      ...(fieldTypes.additional ?? [])
+    ],
+    issues
+  );
 
   return value;
 }
@@ -116,7 +338,7 @@ function validateEffectResource(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     effect,
     path,
     {
@@ -125,6 +347,16 @@ function validateEffectResource(
     },
     issues
   );
+
+  if (value) {
+    validateNumberRange(
+      value.duration,
+      `${path}.duration`,
+      (number) => number >= 0,
+      "must be greater than or equal to 0",
+      issues
+    );
+  }
 }
 
 function validateAudioResource(
@@ -132,7 +364,7 @@ function validateAudioResource(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     audio,
     path,
     {
@@ -152,6 +384,35 @@ function validateAudioResource(
     },
     issues
   );
+
+  if (!value) {
+    return;
+  }
+
+  validateCatalogValue(
+    value.type,
+    `${path}.type`,
+    AUDIO_TYPES,
+    "audio type",
+    issues
+  );
+  validateNumberRange(
+    value.volume,
+    `${path}.volume`,
+    (number) => number >= 0 && number <= 1,
+    "must be between 0 and 1",
+    issues
+  );
+
+  for (const field of ["fadeInDuration", "fadeOutDuration"]) {
+    validateNumberRange(
+      value[field],
+      `${path}.${field}`,
+      (number) => number >= 0,
+      "must be greater than or equal to 0",
+      issues
+    );
+  }
 }
 
 function validateCameraFocalPoint(
@@ -159,7 +420,7 @@ function validateCameraFocalPoint(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     focalPoint,
     path,
     {
@@ -168,6 +429,16 @@ function validateCameraFocalPoint(
     },
     issues
   );
+
+  if (value) {
+    validateNumberRange(
+      value.zoomLevel,
+      `${path}.zoomLevel`,
+      (number) => number > 0,
+      "must be greater than 0",
+      issues
+    );
+  }
 }
 
 function validateCameraPathResource(
@@ -180,7 +451,8 @@ function validateCameraPathResource(
     path,
     {
       strings: ["id", "easing"],
-      numbers: ["duration", "speedMultiplier"]
+      numbers: ["duration", "speedMultiplier"],
+      additional: ["startPoint", "endPoint"]
     },
     issues
   );
@@ -199,6 +471,21 @@ function validateCameraPathResource(
     `${path}.endPoint`,
     issues
   );
+
+  validateNumberRange(
+    value.duration,
+    `${path}.duration`,
+    (number) => number >= 0,
+    "must be greater than or equal to 0",
+    issues
+  );
+  validateNumberRange(
+    value.speedMultiplier,
+    `${path}.speedMultiplier`,
+    (number) => number > 0,
+    "must be greater than 0",
+    issues
+  );
 }
 
 function validateOverlayResource(
@@ -206,7 +493,7 @@ function validateOverlayResource(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     overlay,
     path,
     {
@@ -216,6 +503,16 @@ function validateOverlayResource(
     },
     issues
   );
+
+  if (value) {
+    validateNumberRange(
+      value.duration,
+      `${path}.duration`,
+      (number) => number >= 0,
+      "must be greater than or equal to 0",
+      issues
+    );
+  }
 }
 
 function validatePanelReveal(
@@ -223,7 +520,7 @@ function validatePanelReveal(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     reveal,
     path,
     {
@@ -239,6 +536,28 @@ function validatePanelReveal(
     },
     issues
   );
+
+  if (!value) {
+    return;
+  }
+
+  validateNumberRange(
+    value.delay,
+    `${path}.delay`,
+    (number) => number >= 0,
+    "must be greater than or equal to 0",
+    issues
+  );
+
+  for (const field of ["width", "height"]) {
+    validateNumberRange(
+      value[field],
+      `${path}.${field}`,
+      (number) => number > 0,
+      "must be greater than 0",
+      issues
+    );
+  }
 }
 
 function validatePanelGroupResource(
@@ -249,7 +568,10 @@ function validatePanelGroupResource(
   const value = validateObjectFields(
     panelGroup,
     path,
-    { strings: ["id"] },
+    {
+      strings: ["id"],
+      additional: ["reveals"]
+    },
     issues
   );
 
@@ -281,7 +603,7 @@ function validateZoomRegion(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     zoomRegion,
     path,
     {
@@ -290,6 +612,18 @@ function validateZoomRegion(
     },
     issues
   );
+
+  if (value) {
+    for (const field of ["width", "height"]) {
+      validateNumberRange(
+        value[field],
+        `${path}.${field}`,
+        (number) => number > 0,
+        "must be greater than 0",
+        issues
+      );
+    }
+  }
 }
 
 function validateAsset(
@@ -297,12 +631,22 @@ function validateAsset(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     asset,
     path,
     { strings: ["file", "type"] },
     issues
   );
+
+  if (value) {
+    validateCatalogValue(
+      value.type,
+      `${path}.type`,
+      ASSET_TYPES,
+      "asset type",
+      issues
+    );
+  }
 }
 
 function validateCameraBehavior(
@@ -310,7 +654,7 @@ function validateCameraBehavior(
   path: string,
   issues: ProjectValidationIssue[]
 ): void {
-  validateObjectFields(
+  const value = validateObjectFields(
     cameraBehavior,
     path,
     {
@@ -319,6 +663,16 @@ function validateCameraBehavior(
     },
     issues
   );
+
+  if (value) {
+    validateNumberRange(
+      value.duration,
+      `${path}.duration`,
+      (number) => number >= 0,
+      "must be greater than or equal to 0",
+      issues
+    );
+  }
 }
 
 function validateTransitionEffect(
@@ -352,6 +706,11 @@ function validateTransitionEffect(
       "a number",
       issues
     );
+  } else if (!Number.isFinite(effect.duration)) {
+    issues.push({
+      path: `${path}.duration`,
+      message: "must be a finite number"
+    });
   }
 
   for (
@@ -366,6 +725,20 @@ function validateTransitionEffect(
       );
     }
   }
+
+  addUnknownFieldIssues(
+    effect,
+    path,
+    ["type", "duration", "allowFastForward", "locksInput"],
+    issues
+  );
+  validateNumberRange(
+    effect.duration,
+    `${path}.duration`,
+    (number) => number >= 0,
+    "must be greater than or equal to 0",
+    issues
+  );
 }
 
 function validateTransition(
@@ -412,6 +785,13 @@ function validateTransition(
       issues
     );
   }
+
+  addUnknownFieldIssues(
+    transition,
+    path,
+    ["destinationStateId", "effect", "triggeredAudioCueIds"],
+    issues
+  );
 }
 
 function validatePrompt(
@@ -461,6 +841,13 @@ function validatePrompt(
     `${path}.transition`,
     issues
   );
+
+  addUnknownFieldIssues(
+    prompt,
+    path,
+    ["inputType", "targetId", "transition"],
+    issues
+  );
 }
 
 function validateCameraEvent(
@@ -485,6 +872,11 @@ function validateCameraEvent(
       "a number",
       issues
     );
+  } else if (!Number.isFinite(cameraEvent.triggerTime)) {
+    issues.push({
+      path: `${path}.triggerTime`,
+      message: "must be a finite number"
+    });
   }
 
   if (typeof cameraEvent.cameraPathId !== "string") {
@@ -495,6 +887,20 @@ function validateCameraEvent(
       issues
     );
   }
+
+  addUnknownFieldIssues(
+    cameraEvent,
+    path,
+    ["triggerTime", "cameraPathId"],
+    issues
+  );
+  validateNumberRange(
+    cameraEvent.triggerTime,
+    `${path}.triggerTime`,
+    (number) => number >= 0,
+    "must be greater than or equal to 0",
+    issues
+  );
 }
 
 function validateTimelineEvent(
@@ -519,19 +925,18 @@ function validateTimelineEvent(
       "a number",
       issues
     );
+  } else if (!Number.isFinite(timelineEvent.timestamp)) {
+    issues.push({
+      path: `${path}.timestamp`,
+      message: "must be a finite number"
+    });
   }
-
-  const supportedTypes = [
-    "effect",
-    "audio",
-    "camera",
-    "panelGroup",
-    "overlay"
-  ];
 
   if (
     typeof timelineEvent.type !== "string" ||
-    !supportedTypes.includes(timelineEvent.type)
+    !TIMELINE_EVENT_TYPES.includes(
+      timelineEvent.type as typeof TIMELINE_EVENT_TYPES[number]
+    )
   ) {
     issues.push({
       path: `${path}.type`,
@@ -550,6 +955,20 @@ function validateTimelineEvent(
       issues
     );
   }
+
+  addUnknownFieldIssues(
+    timelineEvent,
+    path,
+    ["timestamp", "type", "payloadId"],
+    issues
+  );
+  validateNumberRange(
+    timelineEvent.timestamp,
+    `${path}.timestamp`,
+    (number) => number >= 0,
+    "must be greater than or equal to 0",
+    issues
+  );
 }
 
 function validateState(
@@ -615,8 +1034,28 @@ function validateState(
         "a number",
         issues
       );
+    } else if (!Number.isFinite(state[field])) {
+      issues.push({
+        path: `${path}.${field}`,
+        message: "must be a finite number"
+      });
     }
   }
+
+  validateNumberRange(
+    state.autoAdvanceDelay,
+    `${path}.autoAdvanceDelay`,
+    (number) => number >= 0,
+    "must be greater than or equal to 0",
+    issues
+  );
+  validateNumberRange(
+    state.fastForwardMultiplier,
+    `${path}.fastForwardMultiplier`,
+    (number) => number >= 1,
+    "must be greater than or equal to 1",
+    issues
+  );
 
   const arrayFields = [
     "zoomRegions",
@@ -715,6 +1154,13 @@ function validateState(
       issues
     );
   } else {
+    addUnknownFieldIssues(
+      state.timeline,
+      `${path}.timeline`,
+      ["events"],
+      issues
+    );
+
     if (!Array.isArray(state.timeline.events)) {
       addRequiredTypeIssue(
         state.timeline.events,
@@ -734,6 +1180,36 @@ function validateState(
       );
     }
   }
+
+  addUnknownFieldIssues(
+    state,
+    path,
+    [
+      "id",
+      "image",
+      "dialogue",
+      "zoomEnabled",
+      "zoomInteractive",
+      "zoomRegions",
+      "audioCueIds",
+      "audioLayersToActivate",
+      "audioLayersToDeactivate",
+      "prompts",
+      "effectIds",
+      "assets",
+      "cameraBehaviors",
+      "cameraFocalPoints",
+      "cameraPathIds",
+      "cameraEvents",
+      "panelGroupIds",
+      "timeline",
+      "autoAdvanceEnabled",
+      "autoAdvanceDelay",
+      "fastForwardEnabled",
+      "fastForwardMultiplier"
+    ],
+    issues
+  );
 }
 
 function validateChapter(
@@ -777,6 +1253,13 @@ function validateChapter(
       issues
     );
   });
+
+  addUnknownFieldIssues(
+    chapter,
+    path,
+    ["title", "states"],
+    issues
+  );
 }
 
 function collectUniqueIds(
@@ -1046,6 +1529,15 @@ export function validateProjectDocument(
     ]);
   }
 
+  applyProjectDefaults(data);
+
+  addUnknownFieldIssues(
+    data,
+    "$",
+    ["schemaVersion", "title", "creator", "resources", "chapters"],
+    issues
+  );
+
   if (data.schemaVersion !== CURRENT_SCHEMA_VERSION) {
     issues.push({
       path: "$.schemaVersion",
@@ -1076,6 +1568,13 @@ export function validateProjectDocument(
       message: "must be an object"
     });
   } else {
+    addUnknownFieldIssues(
+      data.resources,
+      "$.resources",
+      ["effects", "audio", "overlays", "cameraPaths", "panelGroups"],
+      issues
+    );
+
     const resourceCollections = [
       "effects",
       "audio",
