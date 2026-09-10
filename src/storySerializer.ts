@@ -41,11 +41,13 @@ export class StorySerializer {
 
       chapters: story.chapters.map((chapter) => ({
         title: chapter.title,
+        entryStateId: chapter.entryStateId,
 
         states: chapter.states.map((state) => ({
           id: state.id,
           image: state.image,
           dialogue: state.dialogue,
+          isEnding: state.isEnding,
           zoomEnabled: state.zoomEnabled,
           zoomInteractive: state.zoomInteractive,
           zoomRegions: state.zoomRegions,
@@ -265,7 +267,8 @@ export class StorySerializer {
      */
     for (const chapterData of data.chapters) {
       const chapter = new Chapter(
-        chapterData.title
+        chapterData.title,
+        chapterData.entryStateId
       );
 
       for (
@@ -279,6 +282,8 @@ export class StorySerializer {
           stateData.zoomEnabled,
           stateData.zoomInteractive
         );
+
+        state.isEnding = stateData.isEnding;
 
         /*
          * Resolve the state's effect references.

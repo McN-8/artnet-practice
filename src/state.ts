@@ -17,6 +17,7 @@ export class State {
   id: string;
   image: string;
   dialogue: string;
+  isEnding: boolean;
   currentPhase: StatePhase;
   timeline: Timeline;
 
@@ -71,6 +72,7 @@ export class State {
     this.id = id;
     this.image = image;
     this.dialogue = dialogue;
+    this.isEnding = false;
     this.currentPhase = StatePhase.EXITED;
     this.timeline = new Timeline();
 

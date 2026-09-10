@@ -12,7 +12,7 @@ import { StorySerializer } from "../src/storySerializer.js";
 function emptyProject(
   overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
-  return {
+  const project: Record<string, unknown> = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     title: "Test Story",
     creator: "Test Creator",
@@ -26,12 +26,40 @@ function emptyProject(
     chapters: [],
     ...overrides
   };
+
+  if (Array.isArray(project.chapters)) {
+    project.chapters.forEach((chapter) => {
+      if (
+        typeof chapter === "object" &&
+        chapter !== null &&
+        "states" in chapter &&
+        Array.isArray(chapter.states) &&
+        chapter.states.length > 0 &&
+        !("entryStateId" in chapter)
+      ) {
+        const firstState = chapter.states[0];
+
+        if (
+          typeof firstState === "object" &&
+          firstState !== null &&
+          "id" in firstState &&
+          typeof firstState.id === "string"
+        ) {
+          Object.assign(chapter, {
+            entryStateId: firstState.id
+          });
+        }
+      }
+    });
+  }
+
+  return project;
 }
 
 function validState(
   overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
-  return {
+  const state: Record<string, unknown> = {
     id: "state-1",
     image: "forest.png",
     dialogue: "The forest was quiet.",
@@ -56,6 +84,14 @@ function validState(
     fastForwardMultiplier: 2,
     ...overrides
   };
+
+  if (!("isEnding" in overrides)) {
+    state.isEnding =
+      !Array.isArray(state.prompts) ||
+      state.prompts.length === 0;
+  }
+
+  return state;
 }
 
 function validResources(): Record<string, unknown[]> {
@@ -187,6 +223,14 @@ test("loader accepts valid chapters and states", () => {
     project.story.chapters[0]?.states[0]?.id,
     "state-1"
   );
+  assert.equal(
+    project.story.chapters[0]?.entryStateId,
+    "state-1"
+  );
+  assert.equal(
+    project.story.chapters[0]?.states[0]?.isEnding,
+    true
+  );
 });
 
 test("loader reports malformed JSON consistently", () => {
@@ -289,6 +333,10 @@ test("loader reports required chapter fields", () => {
           message: "is required"
         },
         {
+          path: "$.chapters[0].entryStateId",
+          message: "is required"
+        },
+        {
           path: "$.chapters[0].states",
           message: "is required"
         }
@@ -307,6 +355,7 @@ test("loader reports non-object chapters and states", () => {
             null,
             {
               title: "Chapter Two",
+              entryStateId: "missing-state",
               states: [null]
             }
           ]
@@ -345,6 +394,7 @@ test("loader aggregates nested state field errors", () => {
           chapters: [
             {
               title: "Chapter One",
+              entryStateId: "missing-id",
               states: [state]
             }
           ]
@@ -1065,6 +1115,7 @@ test("validator applies version 1 optional defaults", () => {
             id: "state-1",
             image: "page.png",
             dialogue: "Hello",
+            isEnding: false,
             prompts: [
               {
                 inputType: "tapRight",
@@ -1262,4 +1313,167 @@ test("validator rejects unknown version 1 fields", () => {
       return true;
     }
   );
+});
+
+test("validator rejects a chapter entry outside that chapter", () => {
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({
+        chapters: [
+          {
+            title: "Chapter One",
+            entryStateId: "missing-state",
+            states: [validState()]
+          }
+        ]
+      })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].entryStateId",
+          message:
+            "must reference a state in this chapter; " +
+            "references \"missing-state\""
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator reports states unreachable from the chapter entry", () => {
+  const entry = validState({
+    prompts: [
+      {
+        inputType: "tapRight",
+        transition: {
+          destinationStateId: "state-1",
+          effect: {
+            type: "fadeIn",
+            duration: 100,
+            allowFastForward: true,
+            locksInput: false
+          },
+          triggeredAudioCueIds: []
+        }
+      }
+    ]
+  });
+  const unreachable = validState({ id: "state-2" });
+
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({
+        chapters: [
+          {
+            title: "Chapter One",
+            entryStateId: "state-1",
+            states: [entry, unreachable]
+          }
+        ]
+      })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].states[1].id",
+          message:
+            "is unreachable from chapter entry state \"state-1\""
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator distinguishes accidental dead ends from endings", () => {
+  assert.throws(
+    () => validateProjectDocument(
+      projectWithState(validState({ isEnding: false }))
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].states[0].isEnding",
+          message:
+            "must be true when the state has no outgoing transitions"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator rejects ending markers on branching states", () => {
+  const state = validState({
+    isEnding: true,
+    prompts: [
+      {
+        inputType: "tapRight",
+        transition: {
+          destinationStateId: "state-1",
+          effect: {
+            type: "fadeIn",
+            duration: 100,
+            allowFastForward: true,
+            locksInput: false
+          },
+          triggeredAudioCueIds: []
+        }
+      }
+    ]
+  });
+
+  assert.throws(
+    () => validateProjectDocument(projectWithState(state)),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].states[0].isEnding",
+          message:
+            "must be false when the state has outgoing transitions"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator accepts a reachable intentional cycle", () => {
+  const transitionTo = (destinationStateId: string) => ({
+    inputType: "tapRight",
+    transition: {
+      destinationStateId,
+      effect: {
+        type: "fadeIn",
+        duration: 100,
+        allowFastForward: true,
+        locksInput: false
+      },
+      triggeredAudioCueIds: []
+    }
+  });
+
+  assert.doesNotThrow(() => validateProjectDocument(
+    emptyProject({
+      chapters: [
+        {
+          title: "Chapter One",
+          entryStateId: "state-1",
+          states: [
+            validState({ prompts: [transitionTo("state-2")] }),
+            validState({
+              id: "state-2",
+              prompts: [transitionTo("state-1")]
+            })
+          ]
+        }
+      ]
+    })
+  ));
 });

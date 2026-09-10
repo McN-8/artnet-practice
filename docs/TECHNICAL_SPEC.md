@@ -105,6 +105,8 @@ The editor and player should consume the same domain rules and serialization con
 ### Implemented
 
 - Ordered hierarchy: `Story → Chapter → State`.
+- Each chapter declares an `entryStateId`, and validation treats its states as a directed graph rooted at that state.
+- States declare whether they are intentional endings; unreachable states and accidental dead ends are rejected, while reachable cycles are allowed.
 - States can expose multiple prompts with input types including directional taps and pinch/zoom inspection.
 - A prompt can target another state or the current state, enabling inspection behavior without mandatory narrative advancement.
 - `ZoomRegion` provides bounded, described targets for inspectable content.
@@ -112,9 +114,8 @@ The editor and player should consume the same domain rules and serialization con
 
 ### Planned
 
-- Treat the state collection as a validated directed graph, including detection of dangling targets, unreachable states, and accidental dead ends.
 - Support deliberate non-linear reading orders, optional discoveries, branching reveals, and revisitation while maintaining comprehensible navigation.
-- Define chapter entry states, endings, and cross-chapter transition rules explicitly in the schema.
+- Define cross-chapter transition and chapter-exit rules beyond the currently implemented story-wide destination lookup.
 
 ### Exploratory
 
@@ -293,13 +294,15 @@ No visual editor is implemented in the evidenced prototype.
 - `StorySerializer.fromJSON()` recreates the story, resource library, registries, prompts and transitions, camera events, and the demonstrated state/timeline references.
 - Serialized projects declare numeric `schemaVersion: 1`.
 - Loading rejects malformed JSON, missing or unsupported schema versions, invalid title/creator fields, missing resource collection arrays, and a non-array chapter collection before runtime reconstruction begins.
-- Each chapter must be an object with a string title and a state array. Each state must be an object with the required scalar fields, collection arrays, and a timeline containing an event array emitted by the version 1 serializer.
+- Each chapter must be an object with a string title, an `entryStateId`, and a state array. Each state must be an object with the required scalar fields, an explicit boolean `isEnding`, collection arrays, and a timeline containing an event array emitted by the version 1 serializer.
 - Prompt validation requires a supported input type, optional string target ID, and a transition containing a destination-state ID, transition-effect fields, and string triggered-audio IDs.
 - Timeline events require a numeric timestamp, supported dispatch type, and string payload ID. Camera events require a numeric trigger time and string camera-path ID.
 - Resource validation covers effects, audio cues, overlays, camera paths with focal points, and panel groups with reveals. Each resource entry must match the field types consumed by reconstruction.
 - Remaining state validation covers zoom regions, assets, camera behaviors, camera focal points, resource-ID arrays, and audio-layer name arrays.
 - Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
 - Duplicate definitions are rejected within each typed resource registry, and duplicate state IDs are rejected across all chapters.
+- Each chapter entry must reference a state owned by that chapter. Reachability is computed from that entry through prompt transitions whose destinations remain inside the chapter; story-wide transition destination validation continues to permit cross-chapter references.
+- A state with no prompt transitions must declare `isEnding: true`, and a state with one or more prompt transitions must declare `isEnding: false`. Reachable cycles are valid and are not treated as errors.
 - Integrity checks run only after structural/type validation succeeds, avoiding secondary missing-reference errors caused by malformed fields.
 - All numeric values must be finite. Durations, delays, timestamps, and trigger times must be nonnegative; dimensions, zoom levels, and camera-path speed multipliers must be positive; audio volume is limited to 0–1; and state fast-forward multipliers must be at least 1. Coordinates and rotation may be negative.
 - Version 1 closes the existing `InputType` and timeline-event discriminators, asset types to `image` or `audio`, and audio-cue types to `music`, `ambience`, `soundEffect`, or `voice`. Effect names, triggers, easing names, camera behaviors, and transition-effect names remain open strings until their runtime catalogs are specified.
@@ -378,16 +381,15 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
+- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
 
-The automated suite currently covers required structure, field types, reference integrity, uniqueness scopes, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
+The automated suite currently covers required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
 
 ### Planned
 
 - Unit tests for every domain invariant, registry operation, lifecycle transition, timer cancellation rule, and serializer mapping.
 - Round-trip tests asserting semantic equivalence and runtime class reconstruction.
 - Fixture/golden tests for versioned project documents and migrations.
-- Graph validation tests for missing destinations, unreachable content, cycles where prohibited, and intentional cycles where allowed.
 - Contract tests between editor output and runtime input.
 - Integration tests for input → transition → preload → exit/enter → timeline behavior.
 - Deterministic fake-clock tests for timelines, auto-advance, fast-forward, fades, and interruption.
@@ -458,11 +460,13 @@ The demonstrated format is structurally equivalent to:
   "chapters": [
     {
       "title": "...",
+      "entryStateId": "...",
       "states": [
         {
           "id": "...",
           "image": "...",
           "dialogue": "...",
+          "isEnding": false,
           "prompts": [
             {
               "inputType": "tapRight",
@@ -535,13 +539,12 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Expand graph validation beyond destination existence and define chapter entry, reachability, and intentional-ending rules.
-2. Establish a schema migration pipeline and compatibility fixtures before introducing version 2.
-3. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
-4. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
-5. Specify progress snapshots and deterministic restoration semantics.
-6. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-7. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
+1. Establish a schema migration pipeline and compatibility fixtures before introducing version 2.
+2. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
+3. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
+4. Specify progress snapshots and deterministic restoration semantics.
+5. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+6. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
 
 ## 21. Canonical maintenance rules
 

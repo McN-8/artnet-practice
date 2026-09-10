@@ -1004,6 +1004,7 @@ function validateState(
   }
 
   const booleanFields = [
+    "isEnding",
     "zoomEnabled",
     "zoomInteractive",
     "autoAdvanceEnabled",
@@ -1188,6 +1189,7 @@ function validateState(
       "id",
       "image",
       "dialogue",
+      "isEnding",
       "zoomEnabled",
       "zoomInteractive",
       "zoomRegions",
@@ -1236,6 +1238,15 @@ function validateChapter(
     );
   }
 
+  if (typeof chapter.entryStateId !== "string") {
+    addRequiredTypeIssue(
+      chapter.entryStateId,
+      `${path}.entryStateId`,
+      "a string",
+      issues
+    );
+  }
+
   if (!Array.isArray(chapter.states)) {
     addRequiredTypeIssue(
       chapter.states,
@@ -1257,9 +1268,111 @@ function validateChapter(
   addUnknownFieldIssues(
     chapter,
     path,
-    ["title", "states"],
+    ["title", "entryStateId", "states"],
     issues
   );
+}
+
+function validateStoryGraph(
+  chapters: unknown[],
+  issues: ProjectValidationIssue[]
+): void {
+  chapters.forEach((chapter, chapterIndex) => {
+    if (!isRecord(chapter) || !Array.isArray(chapter.states)) {
+      return;
+    }
+
+    const chapterPath = `$.chapters[${chapterIndex}]`;
+    const statesById = new Map<
+      string,
+      { value: Record<string, unknown>; path: string }
+    >();
+
+    chapter.states.forEach((state, stateIndex) => {
+      if (isRecord(state) && typeof state.id === "string") {
+        statesById.set(state.id, {
+          value: state,
+          path: `${chapterPath}.states[${stateIndex}]`
+        });
+      }
+    });
+
+    if (
+      typeof chapter.entryStateId !== "string" ||
+      !statesById.has(chapter.entryStateId)
+    ) {
+      if (typeof chapter.entryStateId === "string") {
+        issues.push({
+          path: `${chapterPath}.entryStateId`,
+          message:
+            `must reference a state in this chapter; ` +
+            `references "${chapter.entryStateId}"`
+        });
+      }
+      return;
+    }
+
+    const reachable = new Set<string>();
+    const pending = [chapter.entryStateId];
+
+    while (pending.length > 0) {
+      const stateId = pending.pop() as string;
+
+      if (reachable.has(stateId)) {
+        continue;
+      }
+
+      reachable.add(stateId);
+      const state = statesById.get(stateId)?.value;
+
+      if (!state || !Array.isArray(state.prompts)) {
+        continue;
+      }
+
+      state.prompts.forEach((prompt) => {
+        if (
+          isRecord(prompt) &&
+          isRecord(prompt.transition) &&
+          typeof prompt.transition.destinationStateId === "string" &&
+          statesById.has(prompt.transition.destinationStateId)
+        ) {
+          pending.push(prompt.transition.destinationStateId);
+        }
+      });
+    }
+
+    statesById.forEach((state, stateId) => {
+      if (!reachable.has(stateId)) {
+        issues.push({
+          path: `${state.path}.id`,
+          message:
+            `is unreachable from chapter entry state ` +
+            `"${chapter.entryStateId}"`
+        });
+      }
+
+      const hasOutgoingTransition =
+        Array.isArray(state.value.prompts) &&
+        state.value.prompts.length > 0;
+
+      if (!hasOutgoingTransition && state.value.isEnding !== true) {
+        issues.push({
+          path: `${state.path}.isEnding`,
+          message:
+            "must be true when the state has no outgoing transitions"
+        });
+      } else if (
+        hasOutgoingTransition &&
+        state.value.isEnding === true
+      ) {
+        issues.push({
+          path: `${state.path}.isEnding`,
+          message:
+            "must be false when the state has outgoing transitions"
+        });
+      }
+    });
+  });
 }
 
 function collectUniqueIds(
@@ -1513,6 +1626,8 @@ function validateProjectIntegrity(
       });
     }
   }
+
+  validateStoryGraph(data.chapters, issues);
 }
 
 export function validateProjectDocument(
