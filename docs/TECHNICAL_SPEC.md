@@ -293,6 +293,9 @@ No visual editor is implemented in the evidenced prototype.
 - `StorySerializer.toJSON()` produces a JSON representation of the story and resource library.
 - `StorySerializer.fromJSON()` recreates the story, resource library, registries, prompts and transitions, camera events, and the demonstrated state/timeline references.
 - Serialized projects declare numeric `schemaVersion: 1`.
+- Loading dispatches documents by schema version before validation. Registered migrations run sequentially on a cloned document until the current version is reached; current-version documents bypass migration.
+- A version 0 compatibility migration upgrades the pre-graph shape by deriving each chapter entry from its first state and deriving `isEnding` from whether a state has prompt transitions. Version 1 remains the current serializer output; version 2 has not been introduced.
+- Migration failures throw `ProjectMigrationError` with path-specific issues. The loader rejects versions newer than it supports, missing sequential migration steps, and legacy graph metadata that cannot be derived safely.
 - Loading rejects malformed JSON, missing or unsupported schema versions, invalid title/creator fields, missing resource collection arrays, and a non-array chapter collection before runtime reconstruction begins.
 - Each chapter must be an object with a string title, an `entryStateId`, and a state array. Each state must be an object with the required scalar fields, an explicit boolean `isEnding`, collection arrays, and a timeline containing an event array emitted by the version 1 serializer.
 - Prompt validation requires a supported input type, optional string target ID, and a transition containing a destination-state ID, transition-effect fields, and string triggered-audio IDs.
@@ -316,9 +319,9 @@ This is object serialization, not yet durable application persistence.
 
 ### Planned
 
-- Add a migration pipeline for future schema versions.
+- Add explicit migration steps and compatibility fixtures whenever future schema versions are introduced.
 - Define versioned effect, trigger, easing, camera-behavior, and transition-effect catalogs when production subsystem contracts exist.
-- Expand state-graph validation beyond destination existence, and validate asset availability before publish or play.
+- Validate asset availability before publish or play.
 - Separate project identity/version from story title and creator display name.
 - Use atomic writes or transactional storage for projects and progress.
 - Preserve backward compatibility for published stories according to a documented support policy.
@@ -381,15 +384,15 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
+- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
 
-The automated suite currently covers required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
+The automated suite currently covers a version 0 compatibility fixture, migration dispatch and diagnostics, required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
 
 ### Planned
 
 - Unit tests for every domain invariant, registry operation, lifecycle transition, timer cancellation rule, and serializer mapping.
 - Round-trip tests asserting semantic equivalence and runtime class reconstruction.
-- Fixture/golden tests for versioned project documents and migrations.
+- Compatibility fixtures for every future version and multi-step migration chain.
 - Contract tests between editor output and runtime input.
 - Integration tests for input → transition → preload → exit/enter → timeline behavior.
 - Deterministic fake-clock tests for timelines, auto-advance, fast-forward, fades, and interruption.
@@ -431,7 +434,7 @@ The automated suite currently covers required structure, field types, reference 
 
 - Replace free-form type strings with versioned discriminated unions or an equivalent validated dispatch contract.
 - Define subsystem interfaces for renderer, audio, asset loading, persistence, input, clock/scheduler, analytics, and accessibility preferences.
-- Support schema migrations and forward-compatible extension namespaces.
+- Extend the sequential migration registry for future schema versions and define forward-compatible extension namespaces.
 - Keep platform-specific implementations behind adapters so the domain and project format remain portable.
 - Document lifecycle and cleanup requirements for every new resource/event type.
 
@@ -539,12 +542,11 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Establish a schema migration pipeline and compatibility fixtures before introducing version 2.
-2. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
-3. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
-4. Specify progress snapshots and deterministic restoration semantics.
-5. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-6. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
+1. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
+2. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
+3. Specify progress snapshots and deterministic restoration semantics.
+4. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+5. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
 
 ## 21. Canonical maintenance rules
 

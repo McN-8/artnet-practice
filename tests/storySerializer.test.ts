@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { ArtNetResources } from "../src/artNetResources.js";
+import {
+  migrateProjectDocument,
+  ProjectMigrationError
+} from "../src/projectMigration.js";
 import {
   CURRENT_SCHEMA_VERSION,
   ProjectValidationError,
@@ -278,11 +283,96 @@ test("loader rejects unsupported schema versions", () => {
       )
     ),
     (error) => {
-      assert.ok(error instanceof ProjectValidationError);
+      assert.ok(error instanceof ProjectMigrationError);
       assert.deepEqual(error.issues, [
         {
           path: "$.schemaVersion",
-          message: `must equal ${CURRENT_SCHEMA_VERSION}`
+          message:
+            "version 2 is newer than supported version 1"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("loader migrates the legacy version 0 compatibility fixture", () => {
+  const legacyJson = readFileSync(
+    new URL("./fixtures/project-v0.json", import.meta.url),
+    "utf8"
+  );
+  const project = StorySerializer.fromJSON(legacyJson);
+  const chapter = project.story.chapters[0];
+
+  assert.equal(project.story.title, "Legacy Story");
+  assert.equal(chapter?.entryStateId, "legacy-ending");
+  assert.equal(chapter?.states[0]?.isEnding, true);
+});
+
+test("migration returns a version 1 copy without mutating legacy input", () => {
+  const legacy = {
+    schemaVersion: 0,
+    chapters: [
+      {
+        title: "Legacy Chapter",
+        states: [
+          {
+            id: "legacy-state",
+            prompts: []
+          }
+        ]
+      }
+    ]
+  };
+
+  const migrated = migrateProjectDocument(legacy) as any;
+
+  assert.notEqual(migrated, legacy);
+  assert.equal(legacy.schemaVersion, 0);
+  assert.equal("entryStateId" in legacy.chapters[0]!, false);
+  assert.equal(migrated.schemaVersion, 1);
+  assert.equal(
+    migrated.chapters[0].entryStateId,
+    "legacy-state"
+  );
+  assert.equal(migrated.chapters[0].states[0].isEnding, true);
+});
+
+test("migration reports a missing sequential migration step", () => {
+  assert.throws(
+    () => migrateProjectDocument({ schemaVersion: -1 }),
+    (error) => {
+      assert.ok(error instanceof ProjectMigrationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.schemaVersion",
+          message:
+            "has no migration path from version -1 to version 1"
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("migration reports graph metadata it cannot derive", () => {
+  assert.throws(
+    () => migrateProjectDocument({
+      schemaVersion: 0,
+      chapters: [
+        {
+          title: "Empty Legacy Chapter",
+          states: []
+        }
+      ]
+    }),
+    (error) => {
+      assert.ok(error instanceof ProjectMigrationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.chapters[0].entryStateId",
+          message:
+            "cannot be derived because the chapter has no first state with a string ID"
         }
       ]);
       return true;

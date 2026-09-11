@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 0,
+  "title": "Legacy Story",
+  "creator": "Legacy Creator",
+  "resources": {
+    "effects": [],
+    "audio": [],
+    "overlays": [],
+    "cameraPaths": [],
+    "panelGroups": []
+  },
+  "chapters": [
+    {
+      "title": "Legacy Chapter",
+      "states": [
+        {
+          "id": "legacy-ending",
+          "image": "legacy.png",
+          "dialogue": "This project predates explicit graph metadata.",
+          "zoomEnabled": false,
+          "zoomInteractive": false,
+          "zoomRegions": [],
+          "audioCueIds": [],
+          "audioLayersToActivate": [],
+          "audioLayersToDeactivate": [],
+          "prompts": [],
+          "effectIds": [],
+          "assets": [],
+          "cameraBehaviors": [],
+          "cameraFocalPoints": [],
+          "cameraPathIds": [],
+          "cameraEvents": [],
+          "panelGroupIds": [],
+          "timeline": {
+            "events": []
+          },
+          "autoAdvanceEnabled": false,
+          "autoAdvanceDelay": 0,
+          "fastForwardEnabled": true,
+          "fastForwardMultiplier": 2
+        }
+      ]
+    }
+  ]
+}

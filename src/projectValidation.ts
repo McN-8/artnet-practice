@@ -1,6 +1,8 @@
 import { InputType } from "./inputType.js";
+import { migrateProjectDocument } from "./projectMigration.js";
+import { CURRENT_SCHEMA_VERSION } from "./projectSchema.js";
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export { CURRENT_SCHEMA_VERSION } from "./projectSchema.js";
 
 export interface ProjectValidationIssue {
   path: string;
@@ -1773,6 +1775,7 @@ export function parseAndValidateProjectDocument(
     ]);
   }
 
+  data = migrateProjectDocument(data);
   validateProjectDocument(data);
 
   return data;
