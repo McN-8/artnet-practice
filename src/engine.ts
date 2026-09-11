@@ -3,6 +3,8 @@ import { Prompt } from "./prompt.js";
 import { AssetCache } from "./assetCache.js";
 import { AudioStack } from "./audioStack.js";
 import { PanelGroup } from "./panelGroup.js";
+import { SystemClock } from "./clock.js";
+import type { Clock, ClockTimer } from "./clock.js";
 
 export class Engine {
   // Runtime State
@@ -16,7 +18,9 @@ export class Engine {
   // Asset Cache
   assetCache: AssetCache;
 
-  activeTimers: ReturnType<typeof setTimeout>[];
+  activeTimers: ClockTimer[];
+
+  clock: Clock;
 
   // Audio Stack
   audioStack: AudioStack;
@@ -29,7 +33,8 @@ export class Engine {
     states: State[],
     audioStack: AudioStack,
     preloadBackwardSpan: number = 1,
-    preloadForwardSpan: number = 2
+    preloadForwardSpan: number = 2,
+    clock: Clock = new SystemClock()
   ) {
     this.currentState = initialState;
     this.states = states;
@@ -37,6 +42,7 @@ export class Engine {
     this.preloadBackwardSpan = preloadBackwardSpan;
     this.preloadForwardSpan = preloadForwardSpan;
     this.assetCache = new AssetCache();
+    this.clock = clock;
     this.activeTimers = [];
     this.fastForwardActive = false;
   }
@@ -167,7 +173,7 @@ export class Engine {
   // Timeline
   playTimeline(state: State): void {
     for (const event of state.timeline.events) {
-      const timer = setTimeout(() => {
+      this.schedule(() => {
         switch (event.type) {
           case "camera":
             this.runCameraPath(
@@ -220,34 +226,57 @@ export class Engine {
               `Timeline Event [${event.type}] triggered.`
             );
         }
-      }, event.timestamp);
-      this.registerTimer(timer);
+      }, this.getEffectiveDelay(event.timestamp, state));
     }
   }
 
   // Panel Groups
   playPanelGroup(panelGroup: PanelGroup): void {
     for (const reveal of panelGroup.reveals) {
-      const timer = setTimeout(() => {
+      this.schedule(() => {
         console.log(
         `Revealing panel ${reveal.panelId} at (${reveal.x}, ${reveal.y}) ` +
         `size ${reveal.width}x${reveal.height} ` +
         `rotation ${reveal.rotation}°.`
         );
-      }, reveal.delay);
-      this.registerTimer(timer);
+      }, this.getEffectiveDelay(reveal.delay));
     }
   }
 
   // Active Timer
 
-  registerTimer(timer: ReturnType<typeof setTimeout>): void {
+  registerTimer(timer: ClockTimer): void {
   this.activeTimers.push(timer);
  }
 
+  schedule(callback: () => void, delay: number): ClockTimer {
+    let timer: ClockTimer;
+
+    timer = this.clock.setTimeout(() => {
+      this.activeTimers = this.activeTimers.filter(
+        (activeTimer) => activeTimer !== timer
+      );
+      callback();
+    }, delay);
+
+    this.registerTimer(timer);
+    return timer;
+  }
+
+  getEffectiveDelay(
+    delay: number,
+    state: State = this.currentState
+  ): number {
+    if (this.fastForwardActive && state.fastForwardEnabled) {
+      return delay / state.fastForwardMultiplier;
+    }
+
+    return delay;
+  }
+
     clearActiveTimers(): void {
   for (const timer of this.activeTimers) {
-    clearTimeout(timer);
+    this.clock.clearTimeout(timer);
   }
 
   this.activeTimers = [];
@@ -257,45 +286,41 @@ export class Engine {
 
   // Auto Advance
   scheduleAutoAdvance(): void {
-    if (!this.currentState.autoAdvanceEnabled) {
-      console.log(`Auto advance disabled for ${this.currentState.id}`);
+    const state = this.currentState;
+
+    if (!state.autoAdvanceEnabled) {
+      console.log(`Auto advance disabled for ${state.id}`);
       return;
     }
 
-    if (!this.currentState.autoAdvancePrompt) {
-      console.log(`Auto advance prompt missing for ${this.currentState.id}`);
+    const prompt = state.autoAdvancePrompt;
+
+    if (!prompt) {
+      console.log(`Auto advance prompt missing for ${state.id}`);
       return;
     }
 
-    let effectiveDelay = this.currentState.autoAdvanceDelay;
-
-    if (
-      this.fastForwardActive &&
-      this.currentState.fastForwardEnabled
-    ) {
-      effectiveDelay =
-        this.currentState.autoAdvanceDelay /
-        this.currentState.fastForwardMultiplier;
-    }
+    const effectiveDelay = this.getEffectiveDelay(
+      state.autoAdvanceDelay,
+      state
+    );
 
     console.log(
       `Auto advancing from ${this.currentState.id} in ${effectiveDelay}ms.`
     );
 
-    setTimeout(() => {
-      if (!this.currentState.autoAdvancePrompt) {
-        return;
-      }
-
-      this.executePrompt(this.currentState.autoAdvancePrompt);
+    this.schedule(() => {
+      this.executePrompt(prompt);
     }, effectiveDelay);
   }
 
   // Timer Cleanup
   startState(state: State): void {
+  this.currentState = state;
   this.clearActiveTimers();
   this.applyAudioLayerRules(state);
   this.playTimeline(state);
+  this.scheduleAutoAdvance();
  }
 
   // Transition Pipeline

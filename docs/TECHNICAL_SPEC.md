@@ -72,6 +72,7 @@ The editor and player should consume the same domain rules and serialization con
 | `TransitionEffect` | Transition timing and input policy | Type, duration, fast-forward permission, and input-lock behavior |
 | `Timeline` | State-relative scheduled instruction collection | Owns `TimelineEvent[]` |
 | `TimelineEvent` | Timestamped typed dispatch | Type plus runtime payload; serialized as `payloadId` for supported resource types |
+| `Clock` | Injectable runtime scheduling boundary | `SystemClock` delegates to platform timers; `DeterministicClock` supports explicit advancement in tests |
 | `Effect` | Reusable effect description | Registered by ID; includes type, trigger, and duration |
 | `AudioCue` | Reusable audio description | Registered by ID; includes file, kind, loop, volume, trigger, persistence, fades, and layer group |
 | `OverlayAsset` | Reusable moving/placed overlay description | References a camera/path ID and contains rotation, duration, and path-following behavior |
@@ -140,7 +141,11 @@ The runtime coordinates a state lifecycle with phases conceptually including pre
 9. Clear abandoned timers so events from an exited state cannot fire later.
 10. Unload distant state assets according to the prototype's proximity policy.
 
-Auto-advance configuration, an optional auto-advance prompt, fast-forward flags/multipliers, and transition-level fast-forward/input-lock rules exist in the domain/runtime prototype.
+Auto-advance configuration, an optional auto-advance prompt, fast-forward flags/multipliers, and transition-level fast-forward/input-lock rules exist in the domain/runtime prototype. Starting a state now schedules both its timeline and eligible auto-advance through the engine's injected clock.
+
+All timeline, panel-reveal, and auto-advance timers use the `Clock` interface and are registered for lifecycle cleanup. `SystemClock` preserves normal runtime behavior, while `DeterministicClock` executes tasks in due-time and insertion order under explicit test advancement. Fired timers remove themselves from the active set, and clearing active timers cancels pending timeline, panel, and auto-advance work.
+
+When fast-forward is active and the current state permits it, timeline timestamps, panel-reveal delays, and auto-advance delays are divided by the state's validated multiplier. This decision is made when each timer is scheduled; toggling fast-forward does not currently reschedule existing timers. Transition-effect duration remains descriptive prototype data rather than a scheduled transition animation.
 
 Timeline dispatch recognizes panel group, camera, effect, audio, and overlay event types. Panel reveal scheduling and camera/effect/audio/overlay executors have been exercised through console-level prototype behavior. This is not evidence of final graphical or audio playback.
 
@@ -148,8 +153,8 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 
 - Replace placeholder/log executors with production rendering, animation, effects, and audio adapters.
 - Formalize cancellation, interruption, idempotency, and error behavior for every lifecycle phase.
-- Define clock ownership, pause/resume semantics, background-tab behavior, and synchronization between animation, audio, and timelines.
-- Make fast-forward affect all eligible timed systems consistently and honor reduced-motion/accessibility policy.
+- Define pause/resume semantics, background-tab behavior, and synchronization between animation, audio, and timelines.
+- Extend fast-forward into future timed adapters and honor reduced-motion/accessibility policy.
 
 ## 6. Navigation and state restoration
 
@@ -384,18 +389,18 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
+- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, semantic serialize/load/serialize equivalence, runtime class reconstruction and shared resource identity, deterministic clock ordering, timeline and panel scheduling, auto-advance, lifecycle cancellation, fast-forward timing and opt-out, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
 
-The automated suite currently covers a version 0 compatibility fixture, migration dispatch and diagnostics, required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
+The automated suite currently covers deterministic runtime timing, semantic reconstruction, a version 0 compatibility fixture, migration dispatch and diagnostics, required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
 
 ### Planned
 
 - Unit tests for every domain invariant, registry operation, lifecycle transition, timer cancellation rule, and serializer mapping.
-- Round-trip tests asserting semantic equivalence and runtime class reconstruction.
+- Additional round-trip scenarios for larger multi-chapter projects and every future schema version.
 - Compatibility fixtures for every future version and multi-step migration chain.
 - Contract tests between editor output and runtime input.
 - Integration tests for input → transition → preload → exit/enter → timeline behavior.
-- Deterministic fake-clock tests for timelines, auto-advance, fast-forward, fades, and interruption.
+- Deterministic timing tests for future fades, transition animations, pause/resume, and interruption races.
 - Accessibility, performance, malformed-data, and security regression suites.
 - End-to-end tests on every supported rendering platform and representative device class.
 
@@ -542,11 +547,10 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Expand automated unit and round-trip tests, introducing a deterministic clock for timed behavior.
-2. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
-3. Specify progress snapshots and deterministic restoration semantics.
-4. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-5. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
+1. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
+2. Specify progress snapshots and deterministic restoration semantics.
+3. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+4. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
 
 ## 21. Canonical maintenance rules
 
