@@ -73,6 +73,7 @@ The editor and player should consume the same domain rules and serialization con
 | `Timeline` | State-relative scheduled instruction collection | Owns `TimelineEvent[]` |
 | `TimelineEvent` | Timestamped typed dispatch | Type plus runtime payload; serialized as `payloadId` for supported resource types |
 | `Clock` | Injectable runtime scheduling boundary | `SystemClock` delegates to platform timers; `DeterministicClock` supports explicit advancement in tests |
+| `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context |
 | `Effect` | Reusable effect description | Registered by ID; includes type, trigger, and duration |
 | `AudioCue` | Reusable audio description | Registered by ID; includes file, kind, loop, volume, trigger, persistence, fades, and layer group |
 | `OverlayAsset` | Reusable moving/placed overlay description | References a camera/path ID and contains rotation, duration, and path-following behavior |
@@ -80,11 +81,12 @@ The editor and player should consume the same domain rules and serialization con
 | `CameraPath` | Reusable camera motion | Connects start/end focal points; includes duration, easing, and speed multiplier |
 | `CameraEvent` | Schedules a camera path | Contains trigger time and a runtime `CameraPath`; serialized as `cameraPathId` |
 | `PanelGroup` | Coordinated panel reveal unit | Owns `PanelReveal[]` |
-| `PanelReveal` | Panel layout and reveal instruction | Panel ID, delay, x/y, width/height, and rotation |
+| `Panel` | Reusable visual panel definition | Registered by ID; optionally carries an asset and accessible description |
+| `PanelReveal` | Panel layout and reveal instruction | Holds a resolved `Panel` at runtime plus delay, x/y, width/height, and rotation; serializes the reference as `panelId` |
 | `ZoomRegion` | Inspectable target in a state | ID, bounds, and textual description |
 | `Asset` | State-associated preload descriptor | File and asset type |
 | `AudioStack` / audio layer | Layered audio configuration | Maintains layers and activation/deactivation behavior |
-| `ArtNetResources` | Project-scoped resource library | Owns registries for effects, audio, overlays, camera paths, and panel groups |
+| `ArtNetResources` | Project-scoped resource library | Owns registries for effects, audio, overlays, camera paths, panels, and panel groups |
 | `Engine` | Runtime coordinator | Holds current state; manages inputs, transition pipeline, timers, timelines, assets, layers, and playback dispatch |
 
 ### 3.2 Relationship rules — Implemented
@@ -92,7 +94,7 @@ The editor and player should consume the same domain rules and serialization con
 - A story owns chapters; a chapter owns states.
 - Prompts form directed graph edges between states by destination ID.
 - Top-level reusable resources have stable IDs and a single canonical serialized definition.
-- State effects, state audio cues, transition-triggered audio cues, state camera paths, camera-event paths, state panel groups, and typed timeline payloads serialize as IDs and are resolved back to runtime objects by the loader.
+- State effects, state audio cues, transition-triggered audio cues, state camera paths, camera-event paths, panel reveals, state panel groups, and typed timeline payloads serialize as IDs and are resolved back to runtime objects by the loader.
 - The loader uses domain methods such as `addEffect`, `addAudioCue`, `addCameraPath`, and `addPanelGroup` to reconstruct state membership.
 - Missing typed resources and transition destinations are rejected with path-specific validation errors before reconstruction.
 
@@ -122,7 +124,6 @@ The editor and player should consume the same domain rules and serialization con
 
 - Branching reveals that change visible composition without changing story state.
 - Multiple simultaneous perspectives, flashbacks, split timelines, and interaction-determined reading order.
-- Whether panels become first-class content entities distinct from `PanelReveal` layout instructions.
 
 ## 5. Runtime lifecycle
 
@@ -181,16 +182,18 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 
 ### Implemented
 
-- A `PanelGroup` contains ordered `PanelReveal` instructions.
-- Each reveal contains panel ID, delay, position, dimensions, and rotation.
+- A `Panel` is a first-class reusable resource with an ID and optional asset and accessible description.
+- A `PanelGroup` contains ordered `PanelReveal` placement instructions. Serialized reveals carry `panelId`; runtime reveals hold the registered `Panel` instance.
+- Each reveal contains delay, position, dimensions, and rotation in a fixed 1600×900 logical-pixel canvas. The origin is top-left, positive x points right, and positive y points down.
+- Renderers uniformly contain the logical canvas inside the viewport, preserving aspect ratio. Letterboxing or pillarboxing occupies any remainder; cropping and non-uniform stretching are outside the version-1 contract.
+- Visual layers are ordered back-to-front as background, panels, overlays, effects, dialogue, and interaction/accessibility UI.
 - Panel groups can belong to states and can be triggered from typed timelines.
 - The engine schedules each reveal independently and cancels pending reveals when state timers are cleared.
+- `Renderer` is injectable. `PrototypeRenderer` preserves console diagnostics; no DOM, canvas, native, or other production renderer is implemented.
 - Audio layer activation/deactivation directives are attached to states; cues also carry a `layerGroup` classification.
 
 ### Planned
 
-- A renderer that maps logical coordinates and dimensions to responsive viewports.
-- Explicit visual z-order/layer model for base image, panels, dialogue, overlays, effects, hotspots, and accessibility UI.
 - Layout constraints, clipping, safe areas, aspect-ratio policy, and deterministic hit testing.
 - Panel visibility/reveal state restoration and a documented relationship between state ownership and timeline ownership.
 - Audio-layer mixing rules, exclusivity, crossfades, ducking, and persistence across state boundaries.
@@ -206,7 +209,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 
 - State assets identify a file and type.
 - The engine preloads nearby destination assets, caches already-loaded assets, and can unload assets considered distant.
-- `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, and panel groups.
+- `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, and panel groups.
 - Serialization stores canonical resource definitions once and state/timeline references by ID for the resource types already migrated.
 - Deserialization reconstructs registries first, then resolves state and timeline references into runtime class instances.
 
@@ -305,16 +308,16 @@ No visual editor is implemented in the evidenced prototype.
 - Each chapter must be an object with a string title, an `entryStateId`, and a state array. Each state must be an object with the required scalar fields, an explicit boolean `isEnding`, collection arrays, and a timeline containing an event array emitted by the version 1 serializer.
 - Prompt validation requires a supported input type, optional string target ID, and a transition containing a destination-state ID, transition-effect fields, and string triggered-audio IDs.
 - Timeline events require a numeric timestamp, supported dispatch type, and string payload ID. Camera events require a numeric trigger time and string camera-path ID.
-- Resource validation covers effects, audio cues, overlays, camera paths with focal points, and panel groups with reveals. Each resource entry must match the field types consumed by reconstruction.
+- Resource validation covers effects, audio cues, overlays, camera paths with focal points, panels, and panel groups with reveals. Each resource entry must match the field types consumed by reconstruction.
 - Remaining state validation covers zoom regions, assets, camera behaviors, camera focal points, resource-ID arrays, and audio-layer name arrays.
-- Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
+- Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, panel-reveal references, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
 - Duplicate definitions are rejected within each typed resource registry, and duplicate state IDs are rejected across all chapters.
 - Each chapter entry must reference a state owned by that chapter. Reachability is computed from that entry through prompt transitions whose destinations remain inside the chapter; story-wide transition destination validation continues to permit cross-chapter references.
 - A state with no prompt transitions must declare `isEnding: true`, and a state with one or more prompt transitions must declare `isEnding: false`. Reachable cycles are valid and are not treated as errors.
 - Integrity checks run only after structural/type validation succeeds, avoiding secondary missing-reference errors caused by malformed fields.
 - All numeric values must be finite. Durations, delays, timestamps, and trigger times must be nonnegative; dimensions, zoom levels, and camera-path speed multipliers must be positive; audio volume is limited to 0–1; and state fast-forward multipliers must be at least 1. Coordinates and rotation may be negative.
 - Version 1 closes the existing `InputType` and timeline-event discriminators, asset types to `image` or `audio`, and audio-cue types to `music`, `ambience`, `soundEffect`, or `voice`. Effect names, triggers, easing names, camera behaviors, and transition-effect names remain open strings until their runtime catalogs are specified.
-- Omitted constructor-backed optional fields receive version 1 defaults before validation: audio persistence/fades/layer group, overlay rotation/duration/path-following, camera-path speed multiplier, panel-reveal layout values, state configuration and empty collections/timeline, transition triggered-audio IDs, and transition-effect fast-forward/input-lock flags.
+- Omitted constructor-backed optional fields receive version 1 defaults before validation: audio persistence/fades/layer group, overlay rotation/duration/path-following, camera-path speed multiplier, panel-reveal layout values, state configuration and empty collections/timeline, transition triggered-audio IDs, and transition-effect fast-forward/input-lock flags. Older version-1 files without `resources.panels` receive minimal panel definitions derived from unique panel-group reveal IDs; newly serialized files always emit the panel registry.
 - Unknown fields are rejected at every validated object boundary in schema version 1 rather than silently ignored. Future fields require a schema revision, migration, or an explicitly specified extension namespace.
 - Nested validation issues use indexed paths such as `$.chapters[0].states[1].timeline.events`, and independent issues are aggregated before loading stops.
 - Project validation failures throw `ProjectValidationError` with one or more path-specific issues.
@@ -389,7 +392,7 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, semantic serialize/load/serialize equivalence, runtime class reconstruction and shared resource identity, deterministic clock ordering, timeline and panel scheduling, auto-advance, lifecycle cancellation, fast-forward timing and opt-out, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
+- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, semantic serialize/load/serialize equivalence, runtime class reconstruction and shared resource identity, panel normalization and legacy compatibility, renderer dispatch, coordinate/layer constants, deterministic clock ordering, timeline and panel scheduling, auto-advance, lifecycle cancellation, fast-forward timing and opt-out, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
 
 The automated suite currently covers deterministic runtime timing, semantic reconstruction, a version 0 compatibility fixture, migration dispatch and diagnostics, required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
 
@@ -463,6 +466,13 @@ The demonstrated format is structurally equivalent to:
     "audio": [],
     "overlays": [],
     "cameraPaths": [],
+    "panels": [
+      {
+        "id": "...",
+        "asset": "...",
+        "accessibleDescription": "..."
+      }
+    ],
     "panelGroups": []
   },
   "chapters": [
@@ -547,10 +557,9 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Specify the panel entity, coordinate system, visual layer order, and renderer contract.
-2. Specify progress snapshots and deterministic restoration semantics.
-3. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-4. Introduce subsystem interfaces for rendering, audio, assets, input, storage, and scheduling.
+1. Specify progress snapshots and deterministic restoration semantics.
+2. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+3. Introduce subsystem interfaces for audio, assets, input, storage, and scheduling, and implement a production renderer adapter.
 
 ## 21. Canonical maintenance rules
 

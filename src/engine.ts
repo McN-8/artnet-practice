@@ -5,6 +5,12 @@ import { AudioStack } from "./audioStack.js";
 import { PanelGroup } from "./panelGroup.js";
 import { SystemClock } from "./clock.js";
 import type { Clock, ClockTimer } from "./clock.js";
+import { PrototypeRenderer } from "./renderer.js";
+import type { Renderer } from "./renderer.js";
+import { DEFAULT_RENDER_CONTEXT } from "./visualContract.js";
+import type { CameraPath } from "./cameraPath.js";
+import type { Effect } from "./effect.js";
+import type { OverlayAsset } from "./overlayAsset.js";
 
 export class Engine {
   // Runtime State
@@ -22,6 +28,8 @@ export class Engine {
 
   clock: Clock;
 
+  renderer: Renderer;
+
   // Audio Stack
   audioStack: AudioStack;
 
@@ -34,7 +42,8 @@ export class Engine {
     audioStack: AudioStack,
     preloadBackwardSpan: number = 1,
     preloadForwardSpan: number = 2,
-    clock: Clock = new SystemClock()
+    clock: Clock = new SystemClock(),
+    renderer: Renderer = new PrototypeRenderer()
   ) {
     this.currentState = initialState;
     this.states = states;
@@ -43,6 +52,7 @@ export class Engine {
     this.preloadForwardSpan = preloadForwardSpan;
     this.assetCache = new AssetCache();
     this.clock = clock;
+    this.renderer = renderer;
     this.activeTimers = [];
     this.fastForwardActive = false;
   }
@@ -133,17 +143,13 @@ export class Engine {
   }
 
   // Camera Path
-    runCameraPath(path: { id: string; duration: number; speedMultiplier: number }): void {
-  console.log(
-    `Running camera path ${path.id} for ${path.duration}ms at ${path.speedMultiplier}x speed.`
-  );
+    runCameraPath(path: CameraPath): void {
+  this.renderer.runCameraPath(path, DEFAULT_RENDER_CONTEXT);
  }
 
   // Run Effect
-  runEffect(effect: { type: string; duration: number }): void {
-  console.log(
-    `Running effect ${effect.type} for ${effect.duration}ms.`
-  );
+  runEffect(effect: Effect): void {
+  this.renderer.runEffect(effect, DEFAULT_RENDER_CONTEXT);
  }
 
   // Audio Payload Execution
@@ -156,18 +162,9 @@ export class Engine {
 
   // Overlay Effect Execution
   runOverlay(
-  overlay: {
-    id: string;
-    asset: string;
-    pathId: string;
-    rotation: number;
-    duration: number;
-    followPath: boolean;
-  }
+  overlay: OverlayAsset
  ): void {
-  console.log(
-    `Displaying overlay ${overlay.asset} on path ${overlay.pathId} with rotation ${overlay.rotation}° for ${overlay.duration}ms.`
-  );
+  this.renderer.displayOverlay(overlay, DEFAULT_RENDER_CONTEXT);
  }
 
   // Timeline
@@ -177,13 +174,13 @@ export class Engine {
         switch (event.type) {
           case "camera":
             this.runCameraPath(
-                 event.payload as { id: string; duration: number; speedMultiplier: number }
+                 event.payload as CameraPath
                  );
             break;
 
           case "effect":
             this.runEffect(
-                event.payload as { type: string; duration: number }
+                event.payload as Effect
                  );
             break;
 
@@ -198,14 +195,7 @@ export class Engine {
 
           case "overlay":
             this.runOverlay(
-                event.payload as {
-                    id: string;
-                    asset: string;
-                    pathId: string;
-                    rotation: number;
-                    duration: number;
-                    followPath: boolean;
-                  }
+                event.payload as OverlayAsset
                  );
             break;
 
@@ -234,10 +224,9 @@ export class Engine {
   playPanelGroup(panelGroup: PanelGroup): void {
     for (const reveal of panelGroup.reveals) {
       this.schedule(() => {
-        console.log(
-        `Revealing panel ${reveal.panelId} at (${reveal.x}, ${reveal.y}) ` +
-        `size ${reveal.width}x${reveal.height} ` +
-        `rotation ${reveal.rotation}°.`
+        this.renderer.revealPanel(
+          reveal,
+          DEFAULT_RENDER_CONTEXT
         );
       }, this.getEffectiveDelay(reveal.delay));
     }
@@ -318,6 +307,7 @@ export class Engine {
   startState(state: State): void {
   this.currentState = state;
   this.clearActiveTimers();
+  this.renderer.renderState(state, DEFAULT_RENDER_CONTEXT);
   this.applyAudioLayerRules(state);
   this.playTimeline(state);
   this.scheduleAutoAdvance();

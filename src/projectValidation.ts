@@ -69,6 +69,26 @@ function applyProjectDefaults(data: unknown): void {
   }
 
   if (isRecord(data.resources)) {
+    if (data.resources.panels === undefined) {
+      const panelIds = new Set<string>();
+
+      if (Array.isArray(data.resources.panelGroups)) {
+        data.resources.panelGroups.forEach((panelGroup) => {
+          if (!isRecord(panelGroup) || !Array.isArray(panelGroup.reveals)) {
+            return;
+          }
+
+          panelGroup.reveals.forEach((reveal) => {
+            if (isRecord(reveal) && typeof reveal.panelId === "string") {
+              panelIds.add(reveal.panelId);
+            }
+          });
+        });
+      }
+
+      data.resources.panels = [...panelIds].map((id) => ({ id }));
+    }
+
     if (Array.isArray(data.resources.audio)) {
       data.resources.audio.forEach((audio) => {
         if (isRecord(audio)) {
@@ -598,6 +618,39 @@ function validatePanelGroupResource(
       issues
     );
   });
+}
+
+function validatePanelResource(
+  panel: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(panel)) {
+    addRequiredTypeIssue(panel, path, "an object", issues);
+    return;
+  }
+
+  if (typeof panel.id !== "string") {
+    addRequiredTypeIssue(panel.id, `${path}.id`, "a string", issues);
+  }
+
+  for (const field of ["asset", "accessibleDescription"]) {
+    if (panel[field] !== undefined && typeof panel[field] !== "string") {
+      addRequiredTypeIssue(
+        panel[field],
+        `${path}.${field}`,
+        "a string",
+        issues
+      );
+    }
+  }
+
+  addUnknownFieldIssues(
+    panel,
+    path,
+    ["id", "asset", "accessibleDescription"],
+    issues
+  );
 }
 
 function validateZoomRegion(
@@ -1438,6 +1491,7 @@ function validateProjectIntegrity(
     "audio",
     "overlays",
     "cameraPaths",
+    "panels",
     "panelGroups"
   ] as const;
 
@@ -1471,6 +1525,28 @@ function validateProjectIntegrity(
           issues
         );
       }
+    });
+  }
+
+  const panelGroups = data.resources.panelGroups;
+
+  if (Array.isArray(panelGroups)) {
+    panelGroups.forEach((panelGroup, panelGroupIndex) => {
+      if (!isRecord(panelGroup) || !Array.isArray(panelGroup.reveals)) {
+        return;
+      }
+
+      panelGroup.reveals.forEach((reveal, revealIndex) => {
+        if (isRecord(reveal)) {
+          validateReference(
+            reveal.panelId,
+            `$.resources.panelGroups[${panelGroupIndex}].reveals[${revealIndex}].panelId`,
+            resourceIds.panels,
+            "panel",
+            issues
+          );
+        }
+      });
     });
   }
 
@@ -1688,7 +1764,7 @@ export function validateProjectDocument(
     addUnknownFieldIssues(
       data.resources,
       "$.resources",
-      ["effects", "audio", "overlays", "cameraPaths", "panelGroups"],
+      ["effects", "audio", "overlays", "cameraPaths", "panels", "panelGroups"],
       issues
     );
 
@@ -1697,6 +1773,7 @@ export function validateProjectDocument(
       "audio",
       "overlays",
       "cameraPaths",
+      "panels",
       "panelGroups"
     ];
 
@@ -1714,6 +1791,7 @@ export function validateProjectDocument(
       ["audio", validateAudioResource],
       ["overlays", validateOverlayResource],
       ["cameraPaths", validateCameraPathResource],
+      ["panels", validatePanelResource],
       ["panelGroups", validatePanelGroupResource]
     ] as const;
 

@@ -11,6 +11,7 @@ import { InputType } from "../src/inputType.js";
 import { OverlayAsset } from "../src/overlayAsset.js";
 import { PanelGroup } from "../src/panelGroup.js";
 import { PanelReveal } from "../src/panelReveal.js";
+import { Panel } from "../src/panel.js";
 import { Prompt } from "../src/prompt.js";
 import { State } from "../src/state.js";
 import { Story } from "../src/story.js";
@@ -48,12 +49,18 @@ test("semantic round trip reconstructs classes and shared resources", () => {
     "pan"
   );
   const panels = new PanelGroup("panels");
+  const panel = new Panel(
+    "panel-1",
+    "panel-1.png",
+    "A moonlit forest panel"
+  );
 
-  panels.addReveal(new PanelReveal("panel-1", 25));
+  panels.addReveal(new PanelReveal(panel, 25));
   resources.effects.register(effect);
   resources.audio.register(audio);
   resources.cameraPaths.register(path);
   resources.overlays.register(overlay);
+  resources.panels.register(panel);
   resources.panelGroups.register(panels);
 
   first.addEffect(effect);
@@ -106,6 +113,10 @@ test("semantic round trip reconstructs classes and shared resources", () => {
     loadedState.prompts[0]?.transition.effect instanceof TransitionEffect
   );
   assert.ok(loadedState.cameraEvents[0] instanceof CameraEvent);
+  assert.ok(
+    loaded.resources.panelGroups.get("panels")?.reveals[0]?.panel
+      instanceof Panel
+  );
 
   assert.equal(
     loadedState.effects[0],
@@ -122,6 +133,10 @@ test("semantic round trip reconstructs classes and shared resources", () => {
   assert.equal(
     loadedState.cameraEvents[0]?.cameraPath,
     loaded.resources.cameraPaths.get("pan")
+  );
+  assert.equal(
+    loaded.resources.panelGroups.get("panels")?.reveals[0]?.panel,
+    loaded.resources.panels.get("panel-1")
   );
 
   loadedState.timeline.events.forEach((event) => {

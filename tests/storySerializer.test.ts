@@ -153,6 +153,13 @@ function validResources(): Record<string, unknown[]> {
         speedMultiplier: 1
       }
     ],
+    panels: [
+      {
+        id: "panel-1",
+        asset: "panel-1.png",
+        accessibleDescription: "Opening forest panel"
+      }
+    ],
     panelGroups: [
       {
         id: "opening-panels",
@@ -1566,4 +1573,98 @@ test("validator accepts a reachable intentional cycle", () => {
       ]
     })
   ));
+});
+
+test("loader synthesizes minimal panel resources for older version 1 files", () => {
+  const resources = validResources() as Record<string, unknown>;
+  delete resources.panels;
+
+  const loaded = StorySerializer.fromJSON(
+    JSON.stringify(emptyProject({ resources }))
+  );
+  const panel = loaded.resources.panels.get("panel-1");
+  const reveal = loaded.resources.panelGroups
+    .get("opening-panels")?.reveals[0];
+
+  assert.equal(panel?.id, "panel-1");
+  assert.equal(panel?.asset, undefined);
+  assert.equal(reveal?.panel, panel);
+});
+
+test("validator reports panel definitions and reveal references", () => {
+  const resources = validResources();
+  resources.panels = [
+    {
+      id: "panel-1",
+      asset: 42,
+      accessibleDescription: false,
+      editorNote: "unknown"
+    }
+  ];
+  (resources.panelGroups![0] as any).reveals[0].panelId =
+    "missing-panel";
+
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({ resources })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.resources.panels[0].asset",
+          message: "must be a string"
+        },
+        {
+          path: "$.resources.panels[0].accessibleDescription",
+          message: "must be a string"
+        },
+        {
+          path: "$.resources.panels[0].editorNote",
+          message: "is not allowed in schema version 1"
+        }
+      ]);
+      return true;
+    }
+  );
+
+  resources.panels = [{ id: "panel-1" }];
+
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({ resources })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path:
+            "$.resources.panelGroups[0].reveals[0].panelId",
+          message: "references missing panel \"missing-panel\""
+        }
+      ]);
+      return true;
+    }
+  );
+});
+
+test("validator rejects duplicate panel resource IDs", () => {
+  const resources = validResources();
+  resources.panels!.push({ id: "panel-1" });
+
+  assert.throws(
+    () => validateProjectDocument(emptyProject({ resources })),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.resources.panels[1].id",
+          message:
+            "must be unique within resources.panels; " +
+            "duplicates \"panel-1\""
+        }
+      ]);
+      return true;
+    }
+  );
 });

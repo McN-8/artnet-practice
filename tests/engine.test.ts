@@ -7,11 +7,17 @@ import { Engine } from "../src/engine.js";
 import { InputType } from "../src/inputType.js";
 import { PanelGroup } from "../src/panelGroup.js";
 import { PanelReveal } from "../src/panelReveal.js";
+import { Panel } from "../src/panel.js";
 import { Prompt } from "../src/prompt.js";
 import { State } from "../src/state.js";
 import { TimelineEvent } from "../src/timelineEvent.js";
 import { Transition } from "../src/transition.js";
 import { TransitionEffect } from "../src/transitionEffect.js";
+import type { Renderer } from "../src/renderer.js";
+import {
+  ARTNET_COORDINATE_SYSTEM,
+  VISUAL_LAYER_ORDER
+} from "../src/visualContract.js";
 
 function createEngine(
   state: State,
@@ -204,7 +210,9 @@ test("fast-forward scales panel reveal delays", () => {
   const panels = new PanelGroup("panels");
 
   state.fastForwardMultiplier = 2;
-  panels.addReveal(new PanelReveal("panel-1", 100));
+  panels.addReveal(
+    new PanelReveal(new Panel("panel-1"), 100)
+  );
 
   const engine = createEngine(state, [state], clock);
   engine.enableFastForward();
@@ -215,4 +223,66 @@ test("fast-forward scales panel reveal delays", () => {
   clock.advanceBy(1);
   assert.equal(clock.pendingTimerCount, 0);
   assert.equal(engine.activeTimers.length, 0);
+});
+
+test("visual contract fixes coordinates and layer ordering", () => {
+  assert.deepEqual(ARTNET_COORDINATE_SYSTEM, {
+    width: 1600,
+    height: 900,
+    origin: "topLeft",
+    xDirection: "right",
+    yDirection: "down",
+    units: "logicalPixels",
+    scaling: "uniformContain"
+  });
+  assert.deepEqual(VISUAL_LAYER_ORDER, [
+    "background",
+    "panels",
+    "overlays",
+    "effects",
+    "dialogue",
+    "interaction"
+  ]);
+  assert.equal(Object.isFrozen(ARTNET_COORDINATE_SYSTEM), true);
+  assert.equal(Object.isFrozen(VISUAL_LAYER_ORDER), true);
+});
+
+test("engine delegates state and panel rendering through Renderer", () => {
+  const clock = new DeterministicClock();
+  const state = new State("one", "one.png", "One");
+  const panel = new Panel("panel-1");
+  const panels = new PanelGroup("panels");
+  const calls: string[] = [];
+  const renderer: Renderer = {
+    renderState(renderedState, context) {
+      calls.push(`${renderedState.id}:${context.layerOrder[0]}`);
+    },
+    revealPanel(reveal, context) {
+      calls.push(`${reveal.panel.id}:${context.coordinateSystem.width}`);
+    },
+    runCameraPath() {},
+    runEffect() {},
+    displayOverlay() {}
+  };
+
+  panels.addReveal(new PanelReveal(panel, 10));
+
+  const engine = new Engine(
+    state,
+    [state],
+    new AudioStack(),
+    1,
+    2,
+    clock,
+    renderer
+  );
+
+  engine.startState(state);
+  engine.playPanelGroup(panels);
+  clock.advanceBy(10);
+
+  assert.deepEqual(calls, [
+    "one:background",
+    "panel-1:1600"
+  ]);
 });

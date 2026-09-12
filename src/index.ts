@@ -21,6 +21,7 @@ import { TimelineEvent } from "./timelineEvent.js";
 import { OverlayAsset } from "./overlayAsset.js";
 import { PanelGroup } from "./panelGroup.js";
 import { PanelReveal } from "./panelReveal.js";
+import { Panel } from "./panel.js";
 import { StorySerializer } from "./storySerializer.js";
 import { ArtNetResources } from "./artNetResources.js";
 
@@ -115,10 +116,13 @@ const revealBoyEvent = new CameraEvent(1500, canopyToBoyPath);
 
 // Panel Groups
 const forestOpening = new PanelGroup("forest-opening");
+const panel2 = new Panel("panel-2", "panel-2.png", "Forest canopy");
+const panel4 = new Panel("panel-4", "panel-4.png", "A branch lowers fruit");
+const panel3 = new Panel("panel-3", "panel-3.png", "The unconscious boy");
 
 forestOpening.addReveal(
   new PanelReveal(
-    "panel-2",
+    panel2,
     0,
     0,
     0,
@@ -130,7 +134,7 @@ forestOpening.addReveal(
 
 forestOpening.addReveal(
   new PanelReveal(
-    "panel-4",
+    panel4,
     1000,
     850,
     100,
@@ -142,7 +146,7 @@ forestOpening.addReveal(
 
 forestOpening.addReveal(
   new PanelReveal(
-    "panel-3",
+    panel3,
     1800,
     300,
     520,
@@ -213,6 +217,9 @@ resources.audio.register(forestAmbience);
 resources.audio.register(punchSound);
 resources.overlays.register(onekusJumpOverlay);
 resources.cameraPaths.register(canopyToBoyPath);
+resources.panels.register(panel2);
+resources.panels.register(panel4);
+resources.panels.register(panel3);
 resources.panelGroups.register(forestOpening);
 
 

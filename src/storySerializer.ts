@@ -11,6 +11,7 @@ import { CameraEvent } from "./cameraEvent.js";
 import { OverlayAsset } from "./overlayAsset.js";
 import { PanelGroup } from "./panelGroup.js";
 import { PanelReveal } from "./panelReveal.js";
+import { Panel } from "./panel.js";
 import { Timeline } from "./timeline.js";
 import { TimelineEvent } from "./timelineEvent.js";
 import { Prompt } from "./prompt.js";
@@ -36,7 +37,21 @@ export class StorySerializer {
         audio: resources.audio.getAll(),
         overlays: resources.overlays.getAll(),
         cameraPaths: resources.cameraPaths.getAll(),
-        panelGroups: resources.panelGroups.getAll()
+        panels: resources.panels.getAll(),
+        panelGroups: resources.panelGroups.getAll().map(
+          (panelGroup) => ({
+            id: panelGroup.id,
+            reveals: panelGroup.reveals.map((reveal) => ({
+              panelId: reveal.panel.id,
+              delay: reveal.delay,
+              x: reveal.x,
+              y: reveal.y,
+              width: reveal.width,
+              height: reveal.height,
+              rotation: reveal.rotation
+            }))
+          })
+        )
       },
 
       chapters: story.chapters.map((chapter) => ({
@@ -231,9 +246,18 @@ export class StorySerializer {
       resources.overlays.register(overlay);
     }
 
-    /*
-     * Rebuild panel groups and their reveals.
-     */
+    /* Rebuild reusable panels before resolving panel reveals. */
+    for (const panelData of data.resources.panels) {
+      resources.panels.register(
+        new Panel(
+          panelData.id,
+          panelData.asset,
+          panelData.accessibleDescription
+        )
+      );
+    }
+
+    /* Rebuild panel groups and resolve their panel references. */
     for (
       const panelGroupData
       of data.resources.panelGroups
@@ -246,8 +270,19 @@ export class StorySerializer {
         const revealData
         of panelGroupData.reveals
       ) {
+        const panel = resources.panels.get(
+          revealData.panelId
+        );
+
+        if (!panel) {
+          console.warn(
+            `Missing panel resource: ${revealData.panelId}`
+          );
+          continue;
+        }
+
         const reveal = new PanelReveal(
-          revealData.panelId,
+          panel,
           revealData.delay,
           revealData.x,
           revealData.y,
