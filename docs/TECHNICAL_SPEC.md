@@ -74,6 +74,7 @@ The editor and player should consume the same domain rules and serialization con
 | `TimelineEvent` | Timestamped typed dispatch | Type plus runtime payload; serialized as `payloadId` for supported resource types |
 | `Clock` | Injectable runtime scheduling boundary | `SystemClock` delegates to platform timers; `DeterministicClock` supports explicit advancement in tests |
 | `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context |
+| `ProgressSnapshotV1` | Portable in-memory reader checkpoint | Identifies project/story version, chapter/state, navigation history, fast-forward preference, and restoration checkpoint |
 | `Effect` | Reusable effect description | Registered by ID; includes type, trigger, and duration |
 | `AudioCue` | Reusable audio description | Registered by ID; includes file, kind, loop, volume, trigger, persistence, fades, and layer group |
 | `OverlayAsset` | Reusable moving/placed overlay description | References a camera/path ID and contains rotation, duration, and path-following behavior |
@@ -164,19 +165,26 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - Prompt input resolves a destination state by ID and changes the engine's current state.
 - Directional navigation and self-targeted inspection are represented in the sample graph.
 - The engine can determine the current state's position for nearby-state asset preloading.
+- Successful prompt transitions append the source state ID to engine navigation history. This history records traversal, but does not implement automatic back navigation.
+- Progress snapshot version 1 records `snapshotVersion`, current `projectSchemaVersion`, story title, a host-supplied immutable `storyVersion` token, `chapterIndex`, `currentStateId`, navigation-history state IDs, fast-forward preference, and `lifecyclePosition`.
+- Snapshot parsing and contextual validation reject malformed JSON, unknown fields, unsupported snapshot/project versions, story title/version mismatches, invalid chapter/state references, malformed or missing history state IDs, and unsupported lifecycle positions through aggregated path-specific `ProgressSnapshotValidationError` issues.
+- Snapshot creation copies navigation history rather than sharing its mutable array. Restoration validates the entire snapshot before changing the engine.
+- Snapshot version 1 supports only `lifecyclePosition: "stateStart"`. Restoration cancels abandoned timers, activates the selected state, applies the saved fast-forward preference, and schedules that state's timeline and auto-advance from elapsed time zero. Consequently, state-entry behavior and one-shot timeline events replay.
+- `chapterIndex` is used because chapters do not yet have stable IDs. `storyVersion` is supplied by the embedding host because story revisions are not yet first-class domain data.
 
 ### Planned
 
-- Persist and restore, at minimum: project/story version, chapter ID, state ID, navigation history or checkpoint, active branch decisions, revealed content, accessibility preferences, audio preferences, and any state-local variables introduced later.
+- Add stable project/chapter identity and first-class story revision metadata.
+- Expand snapshots for active branch decisions, revealed content, accessibility preferences, audio preferences, and future state-local variables.
 - Define back-navigation separately from authored `tapLeft` prompts; a narrative edge is not automatically browser-style history.
-- Restore into a deterministic lifecycle checkpoint without replaying one-shot cues or losing persistent ambience.
+- Define a later lifecycle checkpoint that can restore declared persistent outcomes without replaying one-shot cues or losing persistent ambience.
 - Handle saves whose story version has changed through migration or a clearly reported incompatibility path.
 - Support safe checkpoints around transitions so a crash cannot leave progress between source and destination states.
 
 ### Exploratory
 
 - Cross-device synchronization, cloud saves, bookmarks, multiple reading profiles, and creator-authored checkpoint policies.
-- Replaying a scene from its start versus restoring its exact elapsed timeline position.
+- Resuming from an exact elapsed timeline position rather than the version-1 restart-from-zero checkpoint.
 
 ## 7. Panel and layer systems
 
@@ -322,6 +330,7 @@ No visual editor is implemented in the evidenced prototype.
 - Nested validation issues use indexed paths such as `$.chapters[0].states[1].timeline.events`, and independent issues are aggregated before loading stops.
 - Project validation failures throw `ProjectValidationError` with one or more path-specific issues.
 - A serialize/load round trip has been demonstrated for one story, two states, and registered resource examples.
+- Progress snapshots have their own version and validation contract, separate from project serialization. Snapshot JSON conversion is implemented in memory, but no file, browser, database, or cloud persistence adapter exists.
 
 This is object serialization, not yet durable application persistence.
 
@@ -392,7 +401,7 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies schema-version emission, valid version 1 envelope and nested chapter/state loading, semantic serialize/load/serialize equivalence, runtime class reconstruction and shared resource identity, panel normalization and legacy compatibility, renderer dispatch, coordinate/layer constants, deterministic clock ordering, timeline and panel scheduling, auto-advance, lifecycle cancellation, fast-forward timing and opt-out, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
+- An automated Node test suite verifies progress capture, snapshot JSON conversion, structural and contextual snapshot diagnostics, navigation-history recording, validation-before-mutation, deterministic state-start restoration and abandoned-timer cancellation; schema-version emission, valid version 1 envelope and nested chapter/state loading, semantic serialize/load/serialize equivalence, runtime class reconstruction and shared resource identity, panel normalization and legacy compatibility, renderer dispatch, coordinate/layer constants, deterministic clock ordering, timeline and panel scheduling, auto-advance, lifecycle cancellation, fast-forward timing and opt-out, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
 
 The automated suite currently covers deterministic runtime timing, semantic reconstruction, a version 0 compatibility fixture, migration dispatch and diagnostics, required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
 
@@ -538,8 +547,8 @@ The following decisions must remain open until explicitly resolved:
 4. What coordinate system, origin, scaling, aspect-ratio, and safe-area rules govern panels, focal points, zoom regions, and overlays?
 5. Are chapters strictly ordered containers, and how are chapter entry, exit, and cross-chapter edges represented?
 6. Which state cycles are valid, and how should validation distinguish intentional loops from authoring mistakes?
-7. What exactly constitutes reader progress: current state only, navigation history, revealed panels, elapsed timeline time, variables, or a full runtime snapshot?
-8. On restoration, should timelines replay from zero, resume from elapsed time, or restore only declared persistent outcomes?
+7. Which additional reader outcomes beyond snapshot-v1 state and traversal history must future snapshots preserve?
+8. Should a future lifecycle checkpoint resume exact elapsed timeline time or restore only declared persistent outcomes?
 9. Which audio layer rules govern exclusivity, ducking, priority, crossfade, persistence, and conflict resolution?
 10. Are any deliberately inline/value-owned resources allowed, or must all reusable domain objects be registry-backed?
 11. What is the stable ID policy and how do renames affect references, migrations, saves, and published versions?
@@ -557,9 +566,8 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Specify progress snapshots and deterministic restoration semantics.
-2. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-3. Introduce subsystem interfaces for audio, assets, input, storage, and scheduling, and implement a production renderer adapter.
+1. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
+2. Introduce subsystem interfaces for audio, assets, input, storage, and scheduling, and implement a production renderer adapter.
 
 ## 21. Canonical maintenance rules
 

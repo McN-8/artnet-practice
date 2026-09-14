@@ -11,11 +11,13 @@ import { DEFAULT_RENDER_CONTEXT } from "./visualContract.js";
 import type { CameraPath } from "./cameraPath.js";
 import type { Effect } from "./effect.js";
 import type { OverlayAsset } from "./overlayAsset.js";
+import { StatePhase } from "./statePhase.js";
 
 export class Engine {
   // Runtime State
   currentState: State;
   states: State[];
+  navigationHistory: string[];
 
   // Preloading
   preloadBackwardSpan: number;
@@ -47,6 +49,7 @@ export class Engine {
   ) {
     this.currentState = initialState;
     this.states = states;
+    this.navigationHistory = [];
     this.audioStack = audioStack;
     this.preloadBackwardSpan = preloadBackwardSpan;
     this.preloadForwardSpan = preloadForwardSpan;
@@ -305,8 +308,19 @@ export class Engine {
 
   // Timer Cleanup
   startState(state: State): void {
-  this.currentState = state;
   this.clearActiveTimers();
+  this.activateState(state);
+ }
+
+  restoreStateAtStart(state: State): void {
+  this.clearActiveTimers();
+  state.currentPhase = StatePhase.EXITED;
+  state.enter();
+  this.activateState(state);
+ }
+
+  private activateState(state: State): void {
+  this.currentState = state;
   this.renderer.renderState(state, DEFAULT_RENDER_CONTEXT);
   this.applyAudioLayerRules(state);
   this.playTimeline(state);
@@ -406,6 +420,8 @@ export class Engine {
     );
 
     this.prepareTransition(destinationState);
+
+    this.navigationHistory.push(this.currentState.id);
 
     this.currentState.exit();
 
