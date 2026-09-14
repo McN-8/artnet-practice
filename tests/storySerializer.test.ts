@@ -1668,3 +1668,59 @@ test("validator rejects duplicate panel resource IDs", () => {
     }
   );
 });
+
+test("validator enforces accessible narrative content", () => {
+  const resources = validResources();
+  resources.audio!.push({
+    id: "narration",
+    file: "narration.mp3",
+    type: "voice",
+    loop: false,
+    volume: 1,
+    trigger: "onEnterState",
+    persistsAcrossStates: false,
+    fadeInDuration: 0,
+    fadeOutDuration: 0,
+    layerGroup: "voice"
+  });
+  resources.panels = [
+    {
+      id: "panel-1",
+      asset: "panel-1.png"
+    }
+  ];
+
+  assert.throws(
+    () => validateProjectDocument(
+      emptyProject({
+        resources,
+        chapters: [
+          {
+            title: "Chapter One",
+            states: [validState({ dialogue: "   " })]
+          }
+        ]
+      })
+    ),
+    (error) => {
+      assert.ok(error instanceof ProjectValidationError);
+      assert.deepEqual(error.issues, [
+        {
+          path: "$.resources.audio[1].transcript",
+          message:
+            "is required and must be nonblank for voice audio"
+        },
+        {
+          path: "$.resources.panels[0].accessibleDescription",
+          message:
+            "is required and must be nonblank for asset-backed panels"
+        },
+        {
+          path: "$.chapters[0].states[0].dialogue",
+          message: "must be nonblank"
+        }
+      ]);
+      return true;
+    }
+  );
+});

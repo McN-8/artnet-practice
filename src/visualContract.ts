@@ -29,9 +29,27 @@ export const VISUAL_LAYER_ORDER: readonly VisualLayer[] =
 export interface RenderContext {
   coordinateSystem: typeof ARTNET_COORDINATE_SYSTEM;
   layerOrder: readonly VisualLayer[];
+  accessibility: Readonly<AccessibilityPreferences>;
 }
 
 export const DEFAULT_RENDER_CONTEXT: RenderContext = Object.freeze({
   coordinateSystem: ARTNET_COORDINATE_SYSTEM,
-  layerOrder: VISUAL_LAYER_ORDER
+  layerOrder: VISUAL_LAYER_ORDER,
+  accessibility: DEFAULT_ACCESSIBILITY_PREFERENCES
 });
+
+export function createRenderContext(
+  accessibility: Readonly<AccessibilityPreferences>
+): RenderContext {
+  return Object.freeze({
+    coordinateSystem: ARTNET_COORDINATE_SYSTEM,
+    layerOrder: VISUAL_LAYER_ORDER,
+    accessibility: Object.freeze({ ...accessibility })
+  });
+}
+import {
+  DEFAULT_ACCESSIBILITY_PREFERENCES
+} from "./accessibilityContract.js";
+import type {
+  AccessibilityPreferences
+} from "./accessibilityContract.js";

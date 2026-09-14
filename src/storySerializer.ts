@@ -188,7 +188,8 @@ export class StorySerializer {
         audioData.persistsAcrossStates,
         audioData.fadeInDuration,
         audioData.fadeOutDuration,
-        audioData.layerGroup
+        audioData.layerGroup,
+        audioData.transcript
       );
 
       resources.audio.register(audio);

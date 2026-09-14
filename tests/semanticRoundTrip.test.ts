@@ -34,7 +34,12 @@ test("semantic round trip reconstructs classes and shared resources", () => {
     "voice",
     false,
     0.75,
-    "timeline"
+    "timeline",
+    false,
+    0,
+    0,
+    "default",
+    "A narrated line."
   );
   const path = new CameraPath(
     "pan",

@@ -402,13 +402,42 @@ function validateAudioResource(
         "fadeInDuration",
         "fadeOutDuration"
       ],
-      booleans: ["loop", "persistsAcrossStates"]
+      booleans: ["loop", "persistsAcrossStates"],
+      additional: ["transcript"]
     },
     issues
   );
 
   if (!value) {
     return;
+  }
+
+  if (
+    value.transcript !== undefined &&
+    typeof value.transcript !== "string"
+  ) {
+    addRequiredTypeIssue(
+      value.transcript,
+      `${path}.transcript`,
+      "a string",
+      issues
+    );
+  }
+
+  if (
+    value.type === "voice" &&
+    (
+      value.transcript === undefined ||
+      (
+        typeof value.transcript === "string" &&
+        value.transcript.trim().length === 0
+      )
+    )
+  ) {
+    issues.push({
+      path: `${path}.transcript`,
+      message: "is required and must be nonblank for voice audio"
+    });
   }
 
   validateCatalogValue(
@@ -632,6 +661,22 @@ function validatePanelResource(
 
   if (typeof panel.id !== "string") {
     addRequiredTypeIssue(panel.id, `${path}.id`, "a string", issues);
+  }
+
+  if (
+    typeof panel.asset === "string" &&
+    (
+      panel.accessibleDescription === undefined ||
+      (
+        typeof panel.accessibleDescription === "string" &&
+        panel.accessibleDescription.trim().length === 0
+      )
+    )
+  ) {
+    issues.push({
+      path: `${path}.accessibleDescription`,
+      message: "is required and must be nonblank for asset-backed panels"
+    });
   }
 
   for (const field of ["asset", "accessibleDescription"]) {
@@ -1056,6 +1101,16 @@ function validateState(
         issues
       );
     }
+  }
+
+  if (
+    typeof state.dialogue === "string" &&
+    state.dialogue.trim().length === 0
+  ) {
+    issues.push({
+      path: `${path}.dialogue`,
+      message: "must be nonblank"
+    });
   }
 
   const booleanFields = [

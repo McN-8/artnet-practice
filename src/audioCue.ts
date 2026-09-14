@@ -9,6 +9,7 @@ export class AudioCue {
   fadeInDuration: number;
   fadeOutDuration: number;
   layerGroup: string;
+  transcript: string | undefined;
 
   constructor(
     id: string,
@@ -20,7 +21,8 @@ export class AudioCue {
     persistsAcrossStates: boolean = false,
     fadeInDuration: number = 0,
     fadeOutDuration: number = 0,
-    layerGroup: string = "default"
+    layerGroup: string = "default",
+    transcript?: string
    ) {
     this.id = id;
     this.file = file;
@@ -32,5 +34,6 @@ export class AudioCue {
     this.fadeInDuration = fadeInDuration;
     this.fadeOutDuration = fadeOutDuration;
     this.layerGroup = layerGroup;
+    this.transcript = transcript;
   }
 }

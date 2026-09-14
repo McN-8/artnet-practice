@@ -286,3 +286,38 @@ test("engine delegates state and panel rendering through Renderer", () => {
     "panel-1:1600"
   ]);
 });
+
+test("engine passes accessibility preferences to its renderer", () => {
+  const state = new State("one", "one.png", "One");
+  let reducedMotion = false;
+  const renderer: Renderer = {
+    renderState(_state, context) {
+      reducedMotion = context.accessibility.reducedMotion;
+    },
+    revealPanel() {},
+    runCameraPath() {},
+    runEffect() {},
+    displayOverlay() {}
+  };
+  const engine = new Engine(
+    state,
+    [state],
+    new AudioStack(),
+    1,
+    2,
+    new DeterministicClock(),
+    renderer,
+    {
+      reducedMotion: true,
+      captionsEnabled: true,
+      audioDescriptionsEnabled: false
+    }
+  );
+
+  engine.startState(state);
+  assert.equal(reducedMotion, true);
+  assert.equal(
+    engine.renderContext.accessibility.reducedMotion,
+    true
+  );
+});

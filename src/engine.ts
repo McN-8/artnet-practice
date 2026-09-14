@@ -7,7 +7,14 @@ import { SystemClock } from "./clock.js";
 import type { Clock, ClockTimer } from "./clock.js";
 import { PrototypeRenderer } from "./renderer.js";
 import type { Renderer } from "./renderer.js";
-import { DEFAULT_RENDER_CONTEXT } from "./visualContract.js";
+import { createRenderContext } from "./visualContract.js";
+import type { RenderContext } from "./visualContract.js";
+import {
+  DEFAULT_ACCESSIBILITY_PREFERENCES
+} from "./accessibilityContract.js";
+import type {
+  AccessibilityPreferences
+} from "./accessibilityContract.js";
 import type { CameraPath } from "./cameraPath.js";
 import type { Effect } from "./effect.js";
 import type { OverlayAsset } from "./overlayAsset.js";
@@ -31,6 +38,7 @@ export class Engine {
   clock: Clock;
 
   renderer: Renderer;
+  renderContext: RenderContext;
 
   // Audio Stack
   audioStack: AudioStack;
@@ -45,7 +53,9 @@ export class Engine {
     preloadBackwardSpan: number = 1,
     preloadForwardSpan: number = 2,
     clock: Clock = new SystemClock(),
-    renderer: Renderer = new PrototypeRenderer()
+    renderer: Renderer = new PrototypeRenderer(),
+    accessibility: Readonly<AccessibilityPreferences> =
+      DEFAULT_ACCESSIBILITY_PREFERENCES
   ) {
     this.currentState = initialState;
     this.states = states;
@@ -56,6 +66,7 @@ export class Engine {
     this.assetCache = new AssetCache();
     this.clock = clock;
     this.renderer = renderer;
+    this.renderContext = createRenderContext(accessibility);
     this.activeTimers = [];
     this.fastForwardActive = false;
   }
@@ -147,12 +158,12 @@ export class Engine {
 
   // Camera Path
     runCameraPath(path: CameraPath): void {
-  this.renderer.runCameraPath(path, DEFAULT_RENDER_CONTEXT);
+  this.renderer.runCameraPath(path, this.renderContext);
  }
 
   // Run Effect
   runEffect(effect: Effect): void {
-  this.renderer.runEffect(effect, DEFAULT_RENDER_CONTEXT);
+  this.renderer.runEffect(effect, this.renderContext);
  }
 
   // Audio Payload Execution
@@ -167,7 +178,7 @@ export class Engine {
   runOverlay(
   overlay: OverlayAsset
  ): void {
-  this.renderer.displayOverlay(overlay, DEFAULT_RENDER_CONTEXT);
+  this.renderer.displayOverlay(overlay, this.renderContext);
  }
 
   // Timeline
@@ -229,7 +240,7 @@ export class Engine {
       this.schedule(() => {
         this.renderer.revealPanel(
           reveal,
-          DEFAULT_RENDER_CONTEXT
+          this.renderContext
         );
       }, this.getEffectiveDelay(reveal.delay));
     }
@@ -321,7 +332,7 @@ export class Engine {
 
   private activateState(state: State): void {
   this.currentState = state;
-  this.renderer.renderState(state, DEFAULT_RENDER_CONTEXT);
+  this.renderer.renderState(state, this.renderContext);
   this.applyAudioLayerRules(state);
   this.playTimeline(state);
   this.scheduleAutoAdvance();

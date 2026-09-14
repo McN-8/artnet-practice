@@ -73,10 +73,10 @@ The editor and player should consume the same domain rules and serialization con
 | `Timeline` | State-relative scheduled instruction collection | Owns `TimelineEvent[]` |
 | `TimelineEvent` | Timestamped typed dispatch | Type plus runtime payload; serialized as `payloadId` for supported resource types |
 | `Clock` | Injectable runtime scheduling boundary | `SystemClock` delegates to platform timers; `DeterministicClock` supports explicit advancement in tests |
-| `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context |
+| `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context and accessibility preferences |
 | `ProgressSnapshotV1` | Portable in-memory reader checkpoint | Identifies project/story version, chapter/state, navigation history, fast-forward preference, and restoration checkpoint |
 | `Effect` | Reusable effect description | Registered by ID; includes type, trigger, and duration |
-| `AudioCue` | Reusable audio description | Registered by ID; includes file, kind, loop, volume, trigger, persistence, fades, and layer group |
+| `AudioCue` | Reusable audio description | Registered by ID; includes file, kind, loop, volume, trigger, persistence, fades, layer group, and optional transcript required for voice cues |
 | `OverlayAsset` | Reusable moving/placed overlay description | References a camera/path ID and contains rotation, duration, and path-following behavior |
 | `CameraFocalPoint` | Position and zoom target | Used by camera paths and state camera configuration |
 | `CameraPath` | Reusable camera motion | Connects start/end focal points; includes duration, easing, and speed multiplier |
@@ -325,7 +325,7 @@ No visual editor is implemented in the evidenced prototype.
 - Integrity checks run only after structural/type validation succeeds, avoiding secondary missing-reference errors caused by malformed fields.
 - All numeric values must be finite. Durations, delays, timestamps, and trigger times must be nonnegative; dimensions, zoom levels, and camera-path speed multipliers must be positive; audio volume is limited to 0–1; and state fast-forward multipliers must be at least 1. Coordinates and rotation may be negative.
 - Version 1 closes the existing `InputType` and timeline-event discriminators, asset types to `image` or `audio`, and audio-cue types to `music`, `ambience`, `soundEffect`, or `voice`. Effect names, triggers, easing names, camera behaviors, and transition-effect names remain open strings until their runtime catalogs are specified.
-- Omitted constructor-backed optional fields receive version 1 defaults before validation: audio persistence/fades/layer group, overlay rotation/duration/path-following, camera-path speed multiplier, panel-reveal layout values, state configuration and empty collections/timeline, transition triggered-audio IDs, and transition-effect fast-forward/input-lock flags. Older version-1 files without `resources.panels` receive minimal panel definitions derived from unique panel-group reveal IDs; newly serialized files always emit the panel registry.
+- Omitted constructor-backed optional fields receive version 1 defaults before validation: audio persistence/fades/layer group, overlay rotation/duration/path-following, camera-path speed multiplier, panel-reveal layout values, state configuration and empty collections/timeline, transition triggered-audio IDs, and transition-effect fast-forward/input-lock flags. Voice-cue transcripts are optional at the TypeScript constructor boundary but required and nonblank in validated project files. Older version-1 files without `resources.panels` receive minimal panel definitions derived from unique panel-group reveal IDs; newly serialized files always emit the panel registry.
 - Unknown fields are rejected at every validated object boundary in schema version 1 rather than silently ignored. Future fields require a schema revision, migration, or an explicitly specified extension namespace.
 - Nested validation issues use indexed paths such as `$.chapters[0].states[1].timeline.events`, and independent issues are aggregated before loading stops.
 - Project validation failures throw `ProjectValidationError` with one or more path-specific issues.
@@ -353,20 +353,22 @@ This is object serialization, not yet durable application persistence.
 ### Implemented
 
 - Zoom regions contain textual descriptions, providing a domain location for non-visual meaning.
-- Fast-forward and input-lock concepts exist, which can support timing accommodations after policy is defined.
+- Accessibility contract version 1 targets WCAG 2.2 Level AA for a future production player. Every supported production target must satisfy the contract; conformance testing infrastructure is not yet implemented.
+- Asset-backed panels require nonblank accessible descriptions, state dialogue must be nonblank, and voice audio cues require nonblank transcripts. These rules produce path-specific project validation errors.
+- Every supported `InputType` declares at least one keyboard and one touch equivalent. Production input adapters must expose the same authored prompt without requiring a gesture-only path.
+- Default reader preferences enable captions, leave reduced motion disabled, and leave audio descriptions disabled. Preferences are passed through immutable render context data rather than read from a platform global.
+- Reduced motion removes nonessential animation duration and caps essential orientation/continuity motion at 100 ms. Render adapters must preserve the final visual state and narrative order when motion is removed.
+- Production dialogue and controls must support 200% text scaling without lost content or interaction, keyboard-visible focus, logical reading/focus order, and operation without pointer precision.
+- Normal text requires at least 4.5:1 contrast, large text at least 3:1, and interactive/non-text boundaries at least 3:1. Touch targets must be at least 44×44 CSS pixels unless an equivalent adjacent control is provided.
+- Captions or transcripts are required for meaningful speech; meaningful non-speech audio requires an equivalent visual/text cue in the production presentation. Content must not flash more than three times per second.
 
-No complete accessibility experience has been demonstrated.
+These are contracts and schema/runtime hooks, not evidence of a complete accessible user interface.
 
 ### Planned
 
-- Full keyboard, switch, touch, and assistive-technology navigation for every prompt and interactive region.
-- Semantic labels, reading order, focus management, visible focus, and non-gesture alternatives.
-- Text scaling and reflow policy for dialogue without loss of content or controls.
-- Reduced-motion mode that substitutes or skips nonessential camera motion, effects, and animated transitions.
-- Captions/transcripts and visual alternatives for meaningful audio; audio descriptions or equivalent text for meaningful visuals.
-- Color contrast, color-independent cues, configurable timing, pause/skip/replay controls, and avoidance of unsafe flashing.
-- Editor validation that flags missing descriptions, inaccessible interaction-only gestures, unsafe timing, and contrast risks.
-- Establish a concrete compliance target before public release; no target is assumed here.
+- Implement and test keyboard, switch, touch, screen-reader, focus-management, text-reflow, caption, and reduced-motion behavior in production adapters.
+- Add editor checks for contrast, flashing media, meaningful non-speech audio alternatives, and interaction target sizes once those presentation details exist in the schema.
+- Define configurable timing, pause/skip/replay controls, and audio-description authoring beyond the current preference hook.
 
 ### Exploratory
 
@@ -381,10 +383,13 @@ No complete accessibility experience has been demonstrated.
 - Distant-state asset unloading hooks.
 - Active timer tracking and cleanup on state changes.
 - Reference-based serialization reduces repeated resource definitions.
+- Performance contract version 1 defines maximum startup of 3000 ms, state-transition completion of 250 ms, input response of 100 ms, frame time of 16.7 ms, and audio synchronization drift of 50 ms.
+- Initial required assets are limited to 10 MiB and peak resident assets to 128 MiB. These are acceptance ceilings for every supported target, not preload implementation limits.
+- `validatePerformanceMeasurement()` accepts a complete measured result, rejects unknown/missing/nonfinite/negative values, and aggregates path-specific over-budget failures.
 
 ### Planned
 
-- Define measurable budgets for startup, state transition latency, memory, frame time, asset size, and audio synchronization on target devices.
+- Define the supported device/browser matrix and build benchmark instrumentation that measures the version-1 budgets consistently, including warm/cold startup and percentile methodology.
 - Use bounded look-ahead preloading based on graph probability/priority rather than only list proximity where narratives branch.
 - Instrument load, decode, render, transition, dropped-frame, memory, and audio timing behavior.
 - Ensure timers and event handlers cannot leak across state changes, story unload, preview restart, or app suspension.
@@ -401,7 +406,7 @@ No complete accessibility experience has been demonstrated.
 
 - The development history demonstrates manual executable diagnostics for object construction, transition flow, asset caching, timer cancellation, registry contents, serialization, deserialization, and timeline payload reconstruction.
 - Vertical-slice verification has been used while migrating resource references: serializer change, loader resolution, diagnostic, then commit.
-- An automated Node test suite verifies progress capture, snapshot JSON conversion, structural and contextual snapshot diagnostics, navigation-history recording, validation-before-mutation, deterministic state-start restoration and abandoned-timer cancellation; schema-version emission, valid version 1 envelope and nested chapter/state loading, semantic serialize/load/serialize equivalence, runtime class reconstruction and shared resource identity, panel normalization and legacy compatibility, renderer dispatch, coordinate/layer constants, deterministic clock ordering, timeline and panel scheduling, auto-advance, lifecycle cancellation, fast-forward timing and opt-out, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
+- An automated Node test suite verifies accessibility input coverage, reduced-motion duration policy, preference propagation, dialogue/panel/voice accessibility content rules, performance budget boundaries and aggregated failures; progress capture, snapshot JSON conversion, structural and contextual snapshot diagnostics, navigation-history recording, validation-before-mutation, deterministic state-start restoration and abandoned-timer cancellation; schema-version emission, valid version 1 envelope and nested chapter/state loading, semantic serialize/load/serialize equivalence, runtime class reconstruction and shared resource identity, panel normalization and legacy compatibility, renderer dispatch, coordinate/layer constants, deterministic clock ordering, timeline and panel scheduling, auto-advance, lifecycle cancellation, fast-forward timing and opt-out, version dispatch, legacy migration and source immutability, missing migration steps, path-specific migration failures, malformed JSON diagnostics, missing and unsupported versions, structural/type errors throughout the demonstrated shape, typed reference resolution, transition destinations, duplicate resource/state IDs, chapter entries, reachability, intentional endings and cycles, optional defaults, numeric boundaries, closed catalogs, and unknown-field rejection.
 
 The automated suite currently covers deterministic runtime timing, semantic reconstruction, a version 0 compatibility fixture, migration dispatch and diagnostics, required structure, field types, reference integrity, uniqueness scopes, story-graph rules, numeric policy, catalogs, defaults, and unknown-field behavior across the complete demonstrated version 1 document shape. No continuous integration pipeline is evidenced.
 
@@ -566,8 +571,7 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Define accessibility and performance acceptance criteria before production rendering work hardens assumptions.
-2. Introduce subsystem interfaces for audio, assets, input, storage, and scheduling, and implement a production renderer adapter.
+1. Introduce subsystem interfaces for audio, assets, input, storage, and scheduling, and implement a production renderer adapter.
 
 ## 21. Canonical maintenance rules
 
