@@ -118,6 +118,8 @@ The editor and player should consume the same domain rules and serialization con
 
 ### Planned
 
+- Add explicit story presentation modes. The initial contract should distinguish interactive progression, discrete traditional pages, and continuous vertical scrolling while reusing chapters, panels, assets, and metadata. Traditional modes must not require prompts, transitions, or timelines.
+- Provide a simple page-import path that generates the minimum valid hierarchy and preserves later conversion to richer authoring.
 - Support deliberate non-linear reading orders, optional discoveries, branching reveals, and revisitation while maintaining comprehensible navigation.
 - Define cross-chapter transition and chapter-exit rules beyond the currently implemented story-wide destination lookup.
 
@@ -154,6 +156,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 ### Planned
 
 - Replace placeholder/log executors with production rendering, animation, effects, and audio adapters.
+- Normalize creator-authored auto-prompt configuration in serialized state data. Keep authored eligibility and timing separate from a reader preference that defaults off and supports additional delay or a timing multiplier, pause/resume, and skip.
 - Formalize cancellation, interruption, idempotency, and error behavior for every lifecycle phase.
 - Define pause/resume semantics, background-tab behavior, and synchronization between animation, audio, and timelines.
 - Extend fast-forward into future timed adapters and honor reduced-motion/accessibility policy.
@@ -203,6 +206,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 ### Planned
 
 - Layout constraints, clipping, safe areas, aspect-ratio policy, and deterministic hit testing.
+- Define shared non-destructive visual placement contracts for transforms, crop/masks, flips, opacity, filters, outlines, deformation, and grouping. Resource assets remain immutable; instances carry alterations.
 - Panel visibility/reveal state restoration and a documented relationship between state ownership and timeline ownership.
 - Audio-layer mixing rules, exclusivity, crossfades, ducking, and persistence across state boundaries.
 
@@ -248,6 +252,11 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 ### Planned
 
 - Production render adapters for camera transforms, particles/effects, overlays, transitions, and compositing.
+- Define reusable, typed animation-sequence resources composed of referenced frame or visual assets and time-aligned tracks. Audio clips reference registered cues; categorization metadata supports reusable creator libraries without affecting playback semantics.
+- Define reusable procedural particle-effect resources with seeded randomness, emitter origin and shape, direction cone, count, lifetime, velocity, scale, rotation and identity variation, weighted visual-resource choices, bounds or collision policy, reduced-motion substitution, and enforceable particle budgets.
+- Preserve advanced manual choreography through reusable motion-path resources assignable to a group or individual particles. Procedural emitters remain the default; authored paths use the same deterministic clock, validation, preview, cancellation, and resource-budget contracts.
+- Define burst, splash, and explosion presets as parameterized particle resources. Direction cones must support full-circle emission and bounded arcs such as ground-origin half-space bursts.
+- Define capability-driven haptic resources and timeline events with timed pulses, intensity, and regular or irregular patterns. Playback must honor platform and reader preferences, degrade safely, and never carry essential information without a visual or textual equivalent.
 - A supported, versioned catalog of effect and easing types with validated parameters.
 - Deterministic conflict resolution when multiple camera or transform instructions overlap.
 - Reduced-motion alternatives and author preview of accessibility substitutions.
@@ -293,6 +302,8 @@ No visual editor is implemented in the evidenced prototype.
 ### Planned
 
 - The editor operates on an authoring document with commands, validation, undo/redo, stable IDs, and explicit dirty/version state.
+- Grid visibility, snapping, alignment, equal-size and spacing guides, and similar aids are editor-only preferences or metadata. Snapping should activate only during direct manipulation, expose preview guides and thresholds, support a temporary bypass and independent toggles, never move unrelated objects, preserve numeric overrides, and produce undoable commands.
+- Animation editing uses a shared time-based track model with frame and audio clips, horizontal navigation, and adjustable timeline zoom for overview or precise placement.
 - The runtime consumes a validated immutable snapshot; it must not mutate the canonical authoring document.
 - Preview uses the production runtime contract while isolating preview session state from authored data.
 - Publishing compiles/validates editor data into a versioned runtime package.
@@ -301,6 +312,10 @@ No visual editor is implemented in the evidenced prototype.
 ### Exploratory
 
 - Real-time collaboration, comments, branching project history, reusable templates, marketplace resources, and third-party editor extensions.
+- Community voice-over tracks stored as separately governed user-generated contributions tied to an immutable published story version, subject to creator opt-in, attribution, moderation, reporting, and copyright policy.
+- Achievements driven by privacy-aware domain events such as story completion or resource placement, after the core reader and editor stabilize.
+- Easter eggs expressed through a future declarative variables, conditions, and actions system rather than hard-coded runtime branches.
+- Loading tips owned by the application shell and activated by measured loading telemetry, not embedded as required story content.
 
 ## 12. Persistence and versioning
 
@@ -566,12 +581,21 @@ The following decisions must remain open until explicitly resolved:
 18. What variables/conditions system, if any, governs adaptive narrative and audio behavior beyond state graph transitions?
 19. How should simultaneous or overlapping timeline instructions resolve priority and cancellation?
 20. Where is editor-only metadata stored, and what portion is included in portable/exported projects?
+21. Which reader timing control best complements authored auto-prompt delay: additive delay, multiplier, presets, or a constrained combination?
+22. What transform and deformation subset can every production renderer reproduce consistently, and which operations require baked derivatives or graceful fallback?
+23. What deterministic random-number algorithm, particle ceilings, and device-quality tiers form the version-1 procedural-effects contract?
+24. How are reusable creator-library resources packaged, licensed, versioned, updated, and detached from their source library?
+25. Which platforms expose acceptable haptic capabilities, and what intensity normalization and user-consent rules apply on each?
 
 ## 20. Near-term technical priorities
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Introduce subsystem interfaces for audio, assets, input, storage, and scheduling, and implement a production renderer adapter.
+1. Define story presentation modes and implement the minimum traditional-page import and playback contract.
+2. Normalize auto-prompt serialization and define reader-owned hands-free timing preferences.
+3. Define shared non-destructive visual transformation and grouping contracts.
+4. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
+5. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
 
 ## 21. Canonical maintenance rules
 

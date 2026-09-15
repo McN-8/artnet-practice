@@ -172,8 +172,10 @@ The ideal ArtNet experience feels like reading a graphic story whose world can b
 The reader should be able to:
 
 - Begin immediately and understand how to proceed without instruction.
+- Choose works that use interactive progression, traditional pages, or continuous vertical reading without treating one presentation mode as more legitimate than another.
 - Move forward and backward through a clear authored sequence.
 - Read at a comfortable pace while the runtime maintains intentional audio and visual continuity.
+- Opt into hands-free progression and adjust or disable its additional reading delay; hands-free reading must default to off and remain pausable and skippable.
 - Experience music, ambience, sound effects, visual effects, camera movement, and transitions that support the moment.
 - Encounter optional details—such as focused views, hidden artwork, or restrained interactions—without losing the reading thread.
 - Pause, mute, adjust volume, reduce motion, use captions or transcripts where applicable, and otherwise tailor accessibility without breaking the work.
@@ -204,7 +206,8 @@ The basic workflow should be visual and immediate:
 Advanced tools may support:
 
 - Layered panels and freeform compositions.
-- Independent transforms, opacity, visibility, order, blend behavior, and timing.
+- Non-destructive freeform transforms, crop and masking, directional flips, opacity, filters, outlines, stretching or deformation, grouping, visibility, order, blend behavior, and timing for visual objects.
+- Editor grids, alignment and equal-size guides, optional snapping, precise numeric placement, and undo/redo without allowing assistance to override deliberate placement.
 - Camera paths and moving panel windows over larger illustrations.
 - Parallax and continuously looping seamless backgrounds.
 - Motion modes such as pan once, loop, and ping-pong.
@@ -212,6 +215,9 @@ Advanced tools may support:
 - Persistent audio, stems, fades, loops, and state changes.
 - Synchronized alternate musical arrangements sharing a master timeline, including immediate, beat-, bar-, or marker-aligned transitions.
 - Reusable assets and behavior that reduce duplication.
+- Reusable frame-based animation sequences with time-aligned audio, scalable timeline editing, and categorized libraries of animations, effects, and sounds.
+- Reusable procedural particle and burst effects with configurable emitters, direction cones, identities, variation, and deterministic randomness, plus advanced manually authored motion paths when precise control is worth the additional effort.
+- Optional haptic patterns synchronized with story timing, always accompanied by a non-haptic way to receive narratively important information.
 
 These capabilities should reveal a spectrum rather than two separate products: upload a page today; direct a complex audiovisual scene tomorrow.
 
@@ -300,6 +306,18 @@ Text alternatives, captions, transcripts, reduced-motion behavior, sound-indepen
 
 A story should remain coherent when audio is muted, motion is reduced, a connection is slow, or an advanced effect is unavailable. Enhancements should enrich a durable narrative core.
 
+### 13.11 Support a spectrum of presentation modes
+
+Traditional comics are a first-class use of ArtNet, not a diminished interactive mode. A creator should be able to import pages and publish a paged or continuous-scroll work by reusing chapters, panels, assets, and metadata without authoring transitions, timelines, or prompts. Interactive and cinematic capabilities remain available when the work calls for them.
+
+### 13.12 Separate authored pacing from reader control
+
+Creators may define intended timing, including when progression becomes eligible. Readers retain control over whether hands-free progression runs and may apply an additional delay or timing preference appropriate to their reading pace. Defaults must respect reader agency and accessibility.
+
+### 13.13 Prefer reusable effects without closing the escape hatch
+
+Procedural systems and reusable presets should make common motion—fireflies, splashes, explosions, debris, and similar effects—fast to author and easy to share. Creators may also use manually authored reusable paths for exceptional choreography. The approachable default and the precision tool should share deterministic playback, previews, accessibility alternatives, and performance safeguards.
+
 ## 14. Long-Term Goals
 
 ArtNet's long-term direction includes:
@@ -313,6 +331,8 @@ ArtNet's long-term direction includes:
 7. Build responsible discovery that values affinity and sustained engagement while promoting variety, new creators, and overlooked work.
 8. Add sustainable creator economics—potentially payments, revenue sharing, commissions, or licensing—only with transparent rules aligned with creative sovereignty.
 9. Establish ArtNet as a recognized medium and home for stories that cannot be expressed fully in existing formats.
+
+Approved later horizons also include community-created voice-over tracks attached to specific published story versions with creator consent, attribution, moderation, reporting, and rights controls. Achievements and Easter eggs should wait until the core product is mature and should consume privacy-conscious domain events or a future declarative conditions system rather than coupling themselves to reader-engine internals. Loading tips may be added only when measured waits justify them and should remain an application-shell concern rather than story-format content.
 
 These are horizons, not a commitment to build every feature at once. The sequence should repeatedly prove value in the smallest complete form.
 
@@ -380,4 +400,3 @@ When product requirements conflict, this document is the starting point for reso
 - Add implementation detail to system specifications rather than expanding this document into a technical manual.
 - Use the current codename “ArtNet” without assuming it is the final public brand.
 - Evaluate roadmaps, features, business models, moderation policy, and architecture against the principles above.
-
