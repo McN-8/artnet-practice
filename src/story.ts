@@ -1,4 +1,5 @@
 import { Chapter } from "./chapter.js";
+import type { PresentationMode } from "./presentationMode.js";
 
 export class Story {
 
@@ -8,11 +9,19 @@ export class Story {
 
   chapters: Chapter[];
 
-  constructor(title: string, creator: string) {
+  presentationMode: PresentationMode;
+
+  constructor(
+    title: string,
+    creator: string,
+    presentationMode: PresentationMode = "interactive"
+  ) {
 
     this.title = title;
 
     this.creator = creator;
+
+    this.presentationMode = presentationMode;
 
     this.chapters = [];
 

@@ -109,6 +109,10 @@ The editor and player should consume the same domain rules and serialization con
 ### Implemented
 
 - Ordered hierarchy: `Story → Chapter → State`.
+- Stories declare `presentationMode` as `interactive`, `paged`, or `verticalScroll`. Existing version-1 documents that omit it default to `interactive`.
+- Traditional page import constructs a single ordered chapter from image files and required accessible descriptions. Each page becomes a state with an image asset and a reusable panel resource; the last page alone is marked as an intentional ending.
+- Paged and vertical-scroll chapters use state order as their implicit page order and therefore require neither prompts nor timeline events. Optional enhancements remain legal. Validation requires the entry state to be the first page and rejects misplaced ending markers with nested paths.
+- The engine exposes bounded forward and backward traditional-page movement, renders through the existing renderer, applies normal lifecycle cleanup and nearby-asset policy, and returns `false` at either boundary. The same methods are inert for interactive presentation.
 - Each chapter declares an `entryStateId`, and validation treats its states as a directed graph rooted at that state.
 - States declare whether they are intentional endings; unreachable states and accidental dead ends are rejected, while reachable cycles are allowed.
 - States can expose multiple prompts with input types including directional taps and pinch/zoom inspection.
@@ -118,8 +122,8 @@ The editor and player should consume the same domain rules and serialization con
 
 ### Planned
 
-- Add explicit story presentation modes. The initial contract should distinguish interactive progression, discrete traditional pages, and continuous vertical scrolling while reusing chapters, panels, assets, and metadata. Traditional modes must not require prompts, transitions, or timelines.
-- Provide a simple page-import path that generates the minimum valid hierarchy and preserves later conversion to richer authoring.
+- Implement production paged and continuous-scroll presentation adapters, page-turn input mapping, viewport behavior, and reading-position restoration.
+- Expand import to multiple chapters, creator-selected IDs and metadata, bulk ordering, image inspection, duplicate handling, and actionable per-source diagnostics.
 - Support deliberate non-linear reading orders, optional discoveries, branching reveals, and revisitation while maintaining comprehensible navigation.
 - Define cross-chapter transition and chapter-exit rules beyond the currently implemented story-wide destination lookup.
 
@@ -490,6 +494,7 @@ The demonstrated format is structurally equivalent to:
   "schemaVersion": 1,
   "title": "...",
   "creator": "...",
+  "presentationMode": "interactive",
   "resources": {
     "effects": [],
     "audio": [],
@@ -591,11 +596,10 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Define story presentation modes and implement the minimum traditional-page import and playback contract.
-2. Normalize auto-prompt serialization and define reader-owned hands-free timing preferences.
-3. Define shared non-destructive visual transformation and grouping contracts.
-4. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
-5. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
+1. Normalize auto-prompt serialization and define reader-owned hands-free timing preferences.
+2. Define shared non-destructive visual transformation and grouping contracts.
+3. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
+4. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
 
 ## 21. Canonical maintenance rules
 

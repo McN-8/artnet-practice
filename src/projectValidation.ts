@@ -1,6 +1,7 @@
 import { InputType } from "./inputType.js";
 import { migrateProjectDocument } from "./projectMigration.js";
 import { CURRENT_SCHEMA_VERSION } from "./projectSchema.js";
+import { PRESENTATION_MODES } from "./presentationMode.js";
 
 export { CURRENT_SCHEMA_VERSION } from "./projectSchema.js";
 
@@ -67,6 +68,8 @@ function applyProjectDefaults(data: unknown): void {
   if (!isRecord(data)) {
     return;
   }
+
+  applyDefaults(data, { presentationMode: "interactive" });
 
   if (isRecord(data.resources)) {
     if (data.resources.panels === undefined) {
@@ -1385,6 +1388,7 @@ function validateChapter(
 
 function validateStoryGraph(
   chapters: unknown[],
+  presentationMode: unknown,
   issues: ProjectValidationIssue[]
 ): void {
   chapters.forEach((chapter, chapterIndex) => {
@@ -1406,6 +1410,43 @@ function validateStoryGraph(
         });
       }
     });
+
+    if (
+      presentationMode === "paged" ||
+      presentationMode === "verticalScroll"
+    ) {
+      const lastStateIndex = chapter.states.length - 1;
+
+      if (
+        chapter.states.length > 0 &&
+        isRecord(chapter.states[0]) &&
+        typeof chapter.states[0].id === "string" &&
+        chapter.entryStateId !== chapter.states[0].id
+      ) {
+        issues.push({
+          path: `${chapterPath}.entryStateId`,
+          message: "must reference the first state in a traditional chapter"
+        });
+      }
+
+      chapter.states.forEach((state, stateIndex) => {
+        if (!isRecord(state)) {
+          return;
+        }
+
+        if (state.isEnding !== (stateIndex === lastStateIndex)) {
+          issues.push({
+            path: `${chapterPath}.states[${stateIndex}].isEnding`,
+            message:
+              stateIndex === lastStateIndex
+                ? "must be true for the final traditional page"
+                : "must be false before the final traditional page"
+          });
+        }
+      });
+
+      return;
+    }
 
     if (
       typeof chapter.entryStateId !== "string" ||
@@ -1760,7 +1801,7 @@ function validateProjectIntegrity(
     }
   }
 
-  validateStoryGraph(data.chapters, issues);
+  validateStoryGraph(data.chapters, data.presentationMode, issues);
 }
 
 export function validateProjectDocument(
@@ -1782,7 +1823,7 @@ export function validateProjectDocument(
   addUnknownFieldIssues(
     data,
     "$",
-    ["schemaVersion", "title", "creator", "resources", "chapters"],
+    ["schemaVersion", "title", "creator", "presentationMode", "resources", "chapters"],
     issues
   );
 
@@ -1808,6 +1849,23 @@ export function validateProjectDocument(
       path: "$.creator",
       message: "must be a string"
     });
+  }
+
+  if (typeof data.presentationMode !== "string") {
+    addRequiredTypeIssue(
+      data.presentationMode,
+      "$.presentationMode",
+      "a string",
+      issues
+    );
+  } else {
+    validateCatalogValue(
+      data.presentationMode,
+      "$.presentationMode",
+      PRESENTATION_MODES,
+      "presentation mode",
+      issues
+    );
   }
 
   if (!isRecord(data.resources)) {

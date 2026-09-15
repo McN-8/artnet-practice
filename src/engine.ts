@@ -19,6 +19,8 @@ import type { CameraPath } from "./cameraPath.js";
 import type { Effect } from "./effect.js";
 import type { OverlayAsset } from "./overlayAsset.js";
 import { StatePhase } from "./statePhase.js";
+import type { PresentationMode } from "./presentationMode.js";
+import { isTraditionalPresentationMode } from "./presentationMode.js";
 
 export class Engine {
   // Runtime State
@@ -46,6 +48,8 @@ export class Engine {
   // Fast Forward
   fastForwardActive: boolean;
 
+  presentationMode: PresentationMode;
+
   constructor(
     initialState: State,
     states: State[],
@@ -55,7 +59,8 @@ export class Engine {
     clock: Clock = new SystemClock(),
     renderer: Renderer = new PrototypeRenderer(),
     accessibility: Readonly<AccessibilityPreferences> =
-      DEFAULT_ACCESSIBILITY_PREFERENCES
+      DEFAULT_ACCESSIBILITY_PREFERENCES,
+    presentationMode: PresentationMode = "interactive"
   ) {
     this.currentState = initialState;
     this.states = states;
@@ -69,6 +74,36 @@ export class Engine {
     this.renderContext = createRenderContext(accessibility);
     this.activeTimers = [];
     this.fastForwardActive = false;
+    this.presentationMode = presentationMode;
+  }
+
+  advanceTraditionalPage(): boolean {
+    return this.moveTraditionalPage(1);
+  }
+
+  returnToPreviousTraditionalPage(): boolean {
+    return this.moveTraditionalPage(-1);
+  }
+
+  private moveTraditionalPage(offset: -1 | 1): boolean {
+    if (!isTraditionalPresentationMode(this.presentationMode)) {
+      return false;
+    }
+
+    const currentIndex = this.getCurrentStateIndex();
+    const destinationState = this.states[currentIndex + offset];
+
+    if (!destinationState) {
+      return false;
+    }
+
+    this.navigationHistory.push(this.currentState.id);
+    this.currentState.exit();
+    destinationState.enter();
+    this.startState(destinationState);
+    this.preloadNearbyStates(currentIndex + offset);
+    this.unloadDistantStateAssets(currentIndex + offset);
+    return true;
   }
 
   // Asset Preloading

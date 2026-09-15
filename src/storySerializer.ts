@@ -31,6 +31,7 @@ export class StorySerializer {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       title: story.title,
       creator: story.creator,
+      presentationMode: story.presentationMode,
 
       resources: {
         effects: resources.effects.getAll(),
@@ -155,7 +156,8 @@ export class StorySerializer {
 
     const story = new Story(
       data.title,
-      data.creator
+      data.creator,
+      data.presentationMode
     );
 
     const resources = new ArtNetResources();
