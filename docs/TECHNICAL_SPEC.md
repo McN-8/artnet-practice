@@ -149,7 +149,9 @@ The runtime coordinates a state lifecycle with phases conceptually including pre
 9. Clear abandoned timers so events from an exited state cannot fire later.
 10. Unload distant state assets according to the prototype's proximity policy.
 
-Auto-advance configuration, an optional auto-advance prompt, fast-forward flags/multipliers, and transition-level fast-forward/input-lock rules exist in the domain/runtime prototype. Starting a state now schedules both its timeline and eligible auto-advance through the engine's injected clock.
+Auto-advance configuration, its complete prompt/transition, fast-forward flags/multipliers, and transition-level fast-forward/input-lock rules exist in the domain/runtime prototype. Creator-authored auto-advance eligibility, delay, destination, effect, and triggered audio are project data. Reader-owned hands-free enablement defaults off and applies a bounded 0.25×–4× timing multiplier before any eligible state schedules its auto-prompt through the injected clock.
+
+Readers can pause an auto-prompt without cancelling unrelated timeline work, resume it from its complete adjusted delay, or skip the remaining delay immediately. Changing reader timing preferences while playback is active cancels and deterministically reschedules only the auto-prompt. State changes and general timer cleanup clear its dedicated timer reference.
 
 All timeline, panel-reveal, and auto-advance timers use the `Clock` interface and are registered for lifecycle cleanup. `SystemClock` preserves normal runtime behavior, while `DeterministicClock` executes tasks in due-time and insertion order under explicit test advancement. Fired timers remove themselves from the active set, and clearing active timers cancels pending timeline, panel, and auto-advance work.
 
@@ -160,7 +162,6 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 ### Planned
 
 - Replace placeholder/log executors with production rendering, animation, effects, and audio adapters.
-- Normalize creator-authored auto-prompt configuration in serialized state data. Keep authored eligibility and timing separate from a reader preference that defaults off and supports additional delay or a timing multiplier, pause/resume, and skip.
 - Formalize cancellation, interruption, idempotency, and error behavior for every lifecycle phase.
 - Define pause/resume semantics, background-tab behavior, and synchronization between animation, audio, and timelines.
 - Extend fast-forward into future timed adapters and honor reduced-motion/accessibility policy.
@@ -173,10 +174,10 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - Directional navigation and self-targeted inspection are represented in the sample graph.
 - The engine can determine the current state's position for nearby-state asset preloading.
 - Successful prompt transitions append the source state ID to engine navigation history. This history records traversal, but does not implement automatic back navigation.
-- Progress snapshot version 1 records `snapshotVersion`, current `projectSchemaVersion`, story title, a host-supplied immutable `storyVersion` token, `chapterIndex`, `currentStateId`, navigation-history state IDs, fast-forward preference, and `lifecyclePosition`.
+- Progress snapshot version 1 records `snapshotVersion`, current `projectSchemaVersion`, story title, a host-supplied immutable `storyVersion` token, `chapterIndex`, `currentStateId`, navigation-history state IDs, fast-forward preference, hands-free enablement, auto-prompt timing multiplier, and `lifecyclePosition`.
 - Snapshot parsing and contextual validation reject malformed JSON, unknown fields, unsupported snapshot/project versions, story title/version mismatches, invalid chapter/state references, malformed or missing history state IDs, and unsupported lifecycle positions through aggregated path-specific `ProgressSnapshotValidationError` issues.
 - Snapshot creation copies navigation history rather than sharing its mutable array. Restoration validates the entire snapshot before changing the engine.
-- Snapshot version 1 supports only `lifecyclePosition: "stateStart"`. Restoration cancels abandoned timers, activates the selected state, applies the saved fast-forward preference, and schedules that state's timeline and auto-advance from elapsed time zero. Consequently, state-entry behavior and one-shot timeline events replay.
+- Snapshot version 1 supports only `lifecyclePosition: "stateStart"`. Restoration cancels abandoned timers, activates the selected state, applies saved fast-forward and reader-timing preferences, and schedules that state's timeline and eligible auto-prompt from elapsed time zero. Consequently, state-entry behavior and one-shot timeline events replay. Older version-1 snapshots default missing hands-free fields to off and 1×.
 - `chapterIndex` is used because chapters do not yet have stable IDs. `storyVersion` is supplied by the embedding host because story revisions are not yet first-class domain data.
 
 ### Planned
@@ -334,13 +335,14 @@ No visual editor is implemented in the evidenced prototype.
 - Loading rejects malformed JSON, missing or unsupported schema versions, invalid title/creator fields, missing resource collection arrays, and a non-array chapter collection before runtime reconstruction begins.
 - Each chapter must be an object with a string title, an `entryStateId`, and a state array. Each state must be an object with the required scalar fields, an explicit boolean `isEnding`, collection arrays, and a timeline containing an event array emitted by the version 1 serializer.
 - Prompt validation requires a supported input type, optional string target ID, and a transition containing a destination-state ID, transition-effect fields, and string triggered-audio IDs.
+- An enabled auto-advance requires an `autoAdvancePrompt` with the same nested prompt and transition contract. Disabled states reject a stray auto-prompt. Loading rebuilds the auto-prompt as real `Prompt`, `Transition`, and `TransitionEffect` objects and resolves its triggered audio IDs.
 - Timeline events require a numeric timestamp, supported dispatch type, and string payload ID. Camera events require a numeric trigger time and string camera-path ID.
 - Resource validation covers effects, audio cues, overlays, camera paths with focal points, panels, and panel groups with reveals. Each resource entry must match the field types consumed by reconstruction.
 - Remaining state validation covers zoom regions, assets, camera behaviors, camera focal points, resource-ID arrays, and audio-layer name arrays.
 - Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, panel-reveal references, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
 - Duplicate definitions are rejected within each typed resource registry, and duplicate state IDs are rejected across all chapters.
-- Each chapter entry must reference a state owned by that chapter. Reachability is computed from that entry through prompt transitions whose destinations remain inside the chapter; story-wide transition destination validation continues to permit cross-chapter references.
-- A state with no prompt transitions must declare `isEnding: true`, and a state with one or more prompt transitions must declare `isEnding: false`. Reachable cycles are valid and are not treated as errors.
+- Each chapter entry must reference a state owned by that chapter. Reachability is computed from that entry through manual and auto-prompt transitions whose destinations remain inside the chapter; story-wide transition destination validation continues to permit cross-chapter references.
+- A state with no manual or auto-prompt transitions must declare `isEnding: true`, and a state with one or more such transitions must declare `isEnding: false`. Reachable cycles are valid and are not treated as errors.
 - Integrity checks run only after structural/type validation succeeds, avoiding secondary missing-reference errors caused by malformed fields.
 - All numeric values must be finite. Durations, delays, timestamps, and trigger times must be nonnegative; dimensions, zoom levels, and camera-path speed multipliers must be positive; audio volume is limited to 0–1; and state fast-forward multipliers must be at least 1. Coordinates and rotation may be negative.
 - Version 1 closes the existing `InputType` and timeline-event discriminators, asset types to `image` or `audio`, and audio-cue types to `music`, `ambience`, `soundEffect`, or `voice`. Effect names, triggers, easing names, camera behaviors, and transition-effect names remain open strings until their runtime catalogs are specified.
@@ -552,6 +554,21 @@ The demonstrated format is structurally equivalent to:
                 "payloadId": "..."
               }
             ]
+          },
+          "autoAdvanceEnabled": true,
+          "autoAdvanceDelay": 3000,
+          "autoAdvancePrompt": {
+            "inputType": "tapRight",
+            "transition": {
+              "destinationStateId": "...",
+              "effect": {
+                "type": "fadeIn",
+                "duration": 0,
+                "allowFastForward": true,
+                "locksInput": false
+              },
+              "triggeredAudioCueIds": ["..."]
+            }
           }
         }
       ]
@@ -560,7 +577,7 @@ The demonstrated format is structurally equivalent to:
 }
 ```
 
-Version 1 requires the displayed top-level metadata, five typed resource arrays, chapter structure, state fields, and the nested contents demonstrated by the serializer before reconstruction. Structural/type validation covers the complete demonstrated shape. Reference integrity covers the typed registries and transition destinations, with resource IDs unique per registry and state IDs unique across the story. Constructor-backed optional fields are defaulted before validation; numeric values and closed catalogs follow the policies in Section 12; unknown fields are rejected. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
+Version 1 requires the displayed top-level metadata, five typed resource arrays, chapter structure, state fields, and the nested contents demonstrated by the serializer before reconstruction. Structural/type validation covers the complete demonstrated shape. Reference integrity covers the typed registries and transition destinations, with resource IDs unique per registry and state IDs unique across the story. Constructor-backed optional fields are defaulted before validation; numeric values and closed catalogs follow the policies in Section 12; unknown fields are rejected. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Manual and auto-prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
 
 ## 19. Unresolved questions
 
@@ -586,20 +603,18 @@ The following decisions must remain open until explicitly resolved:
 18. What variables/conditions system, if any, governs adaptive narrative and audio behavior beyond state graph transitions?
 19. How should simultaneous or overlapping timeline instructions resolve priority and cancellation?
 20. Where is editor-only metadata stored, and what portion is included in portable/exported projects?
-21. Which reader timing control best complements authored auto-prompt delay: additive delay, multiplier, presets, or a constrained combination?
-22. What transform and deformation subset can every production renderer reproduce consistently, and which operations require baked derivatives or graceful fallback?
-23. What deterministic random-number algorithm, particle ceilings, and device-quality tiers form the version-1 procedural-effects contract?
-24. How are reusable creator-library resources packaged, licensed, versioned, updated, and detached from their source library?
-25. Which platforms expose acceptable haptic capabilities, and what intensity normalization and user-consent rules apply on each?
+21. What transform and deformation subset can every production renderer reproduce consistently, and which operations require baked derivatives or graceful fallback?
+22. What deterministic random-number algorithm, particle ceilings, and device-quality tiers form the version-1 procedural-effects contract?
+23. How are reusable creator-library resources packaged, licensed, versioned, updated, and detached from their source library?
+24. Which platforms expose acceptable haptic capabilities, and what intensity normalization and user-consent rules apply on each?
 
 ## 20. Near-term technical priorities
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Normalize auto-prompt serialization and define reader-owned hands-free timing preferences.
-2. Define shared non-destructive visual transformation and grouping contracts.
-3. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
-4. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
+1. Define shared non-destructive visual transformation and grouping contracts.
+2. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
+3. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
 
 ## 21. Canonical maintenance rules
 

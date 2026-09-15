@@ -120,6 +120,10 @@ test("auto-advance runs through the deterministic clock", () => {
   first.enableAutoAdvance(100, createPrompt("two"));
 
   const engine = createEngine(first, [first, second], clock);
+  engine.setReaderTimingPreferences({
+    handsFreeEnabled: true,
+    autoPromptTimingMultiplier: 1
+  });
   engine.startState(first);
 
   clock.advanceBy(99);
@@ -138,6 +142,10 @@ test("clearing timers cancels a pending auto-advance", () => {
   first.enableAutoAdvance(100, createPrompt("two"));
 
   const engine = createEngine(first, [first, second], clock);
+  engine.setReaderTimingPreferences({
+    handsFreeEnabled: true,
+    autoPromptTimingMultiplier: 1
+  });
   engine.startState(first);
   engine.clearActiveTimers();
   clock.advanceBy(100);
@@ -163,6 +171,10 @@ test("fast-forward scales eligible timeline and auto-advance delays", () => {
   first.enableAutoAdvance(100, createPrompt("two"));
 
   const engine = createEngine(first, [first, second], clock);
+  engine.setReaderTimingPreferences({
+    handsFreeEnabled: true,
+    autoPromptTimingMultiplier: 1
+  });
   engine.runEffect = (value) => fired.push(value.type);
   engine.enableFastForward();
   engine.startState(first);

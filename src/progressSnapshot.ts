@@ -15,6 +15,8 @@ export interface ProgressSnapshotV1 {
   currentStateId: string;
   navigationHistory: string[];
   fastForwardEnabled: boolean;
+  handsFreeEnabled: boolean;
+  autoPromptTimingMultiplier: number;
   lifecyclePosition: RestoredLifecyclePosition;
 }
 
@@ -82,6 +84,8 @@ export function validateProgressSnapshot(
     "currentStateId",
     "navigationHistory",
     "fastForwardEnabled",
+    "handsFreeEnabled",
+    "autoPromptTimingMultiplier",
     "lifecyclePosition"
   ]);
 
@@ -149,6 +153,35 @@ export function validateProgressSnapshot(
       "a boolean",
       issues
     );
+  }
+
+  if (data.handsFreeEnabled === undefined) {
+    data.handsFreeEnabled = false;
+  }
+
+  if (data.autoPromptTimingMultiplier === undefined) {
+    data.autoPromptTimingMultiplier = 1;
+  }
+
+  if (typeof data.handsFreeEnabled !== "boolean") {
+    addRequiredTypeIssue(
+      data.handsFreeEnabled,
+      "$.handsFreeEnabled",
+      "a boolean",
+      issues
+    );
+  }
+
+  if (
+    typeof data.autoPromptTimingMultiplier !== "number" ||
+    !Number.isFinite(data.autoPromptTimingMultiplier) ||
+    data.autoPromptTimingMultiplier < 0.25 ||
+    data.autoPromptTimingMultiplier > 4
+  ) {
+    issues.push({
+      path: "$.autoPromptTimingMultiplier",
+      message: "must be a finite number between 0.25 and 4"
+    });
   }
 
   if (!Array.isArray(data.navigationHistory)) {
@@ -267,6 +300,10 @@ export function createProgressSnapshot(
     currentStateId: engine.currentState.id,
     navigationHistory: [...engine.navigationHistory],
     fastForwardEnabled: engine.fastForwardActive,
+    handsFreeEnabled:
+      engine.readerTimingPreferences.handsFreeEnabled,
+    autoPromptTimingMultiplier:
+      engine.readerTimingPreferences.autoPromptTimingMultiplier,
     lifecyclePosition: "stateStart"
   };
 }
@@ -311,5 +348,9 @@ export function restoreProgressSnapshot(
 
   engine.navigationHistory = [...snapshot.navigationHistory];
   engine.fastForwardActive = snapshot.fastForwardEnabled;
+  engine.readerTimingPreferences = {
+    handsFreeEnabled: snapshot.handsFreeEnabled,
+    autoPromptTimingMultiplier: snapshot.autoPromptTimingMultiplier
+  };
   engine.restoreStateAtStart(state);
 }

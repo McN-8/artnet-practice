@@ -137,6 +137,23 @@ export class StorySerializer {
           autoAdvanceDelay:
             state.autoAdvanceDelay,
 
+          autoAdvancePrompt:
+            state.autoAdvancePrompt
+              ? {
+                  inputType: state.autoAdvancePrompt.inputType,
+                  targetId: state.autoAdvancePrompt.targetId,
+                  transition: {
+                    destinationStateId:
+                      state.autoAdvancePrompt.transition.destinationStateId,
+                    effect: state.autoAdvancePrompt.transition.effect,
+                    triggeredAudioCueIds:
+                      state.autoAdvancePrompt.transition.triggeredAudioCues.map(
+                        (audioCue) => audioCue.id
+                      )
+                  }
+                }
+              : undefined,
+
           fastForwardEnabled:
             state.fastForwardEnabled,
 
@@ -403,6 +420,40 @@ export class StorySerializer {
           }
 
           state.addPrompt(
+            new Prompt(
+              promptData.inputType,
+              transition,
+              promptData.targetId
+            )
+          );
+        }
+
+        if (stateData.autoAdvancePrompt) {
+          const promptData = stateData.autoAdvancePrompt;
+          const effectData = promptData.transition.effect;
+          const transition = new Transition(
+            promptData.transition.destinationStateId,
+            new TransitionEffect(
+              effectData.type,
+              effectData.duration,
+              effectData.allowFastForward,
+              effectData.locksInput
+            )
+          );
+
+          for (
+            const audioCueId
+            of promptData.transition.triggeredAudioCueIds
+          ) {
+            const audioCue = resources.audio.get(audioCueId);
+
+            if (audioCue) {
+              transition.addTriggeredAudioCue(audioCue);
+            }
+          }
+
+          state.enableAutoAdvance(
+            stateData.autoAdvanceDelay,
             new Prompt(
               promptData.inputType,
               transition,

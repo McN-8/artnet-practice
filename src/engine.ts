@@ -21,6 +21,11 @@ import type { OverlayAsset } from "./overlayAsset.js";
 import { StatePhase } from "./statePhase.js";
 import type { PresentationMode } from "./presentationMode.js";
 import { isTraditionalPresentationMode } from "./presentationMode.js";
+import {
+  DEFAULT_READER_TIMING_PREFERENCES,
+  validateReaderTimingPreferences
+} from "./readerTimingPreferences.js";
+import type { ReaderTimingPreferences } from "./readerTimingPreferences.js";
 
 export class Engine {
   // Runtime State
@@ -50,6 +55,11 @@ export class Engine {
 
   presentationMode: PresentationMode;
 
+  readerTimingPreferences: ReaderTimingPreferences;
+  autoPromptPaused: boolean;
+  autoPromptTimer?: ClockTimer;
+  lifecycleActive: boolean;
+
   constructor(
     initialState: State,
     states: State[],
@@ -60,7 +70,9 @@ export class Engine {
     renderer: Renderer = new PrototypeRenderer(),
     accessibility: Readonly<AccessibilityPreferences> =
       DEFAULT_ACCESSIBILITY_PREFERENCES,
-    presentationMode: PresentationMode = "interactive"
+    presentationMode: PresentationMode = "interactive",
+    readerTimingPreferences: Readonly<ReaderTimingPreferences> =
+      DEFAULT_READER_TIMING_PREFERENCES
   ) {
     this.currentState = initialState;
     this.states = states;
@@ -75,6 +87,60 @@ export class Engine {
     this.activeTimers = [];
     this.fastForwardActive = false;
     this.presentationMode = presentationMode;
+    validateReaderTimingPreferences(readerTimingPreferences);
+    this.readerTimingPreferences = { ...readerTimingPreferences };
+    this.autoPromptPaused = false;
+    this.lifecycleActive = false;
+  }
+
+  setReaderTimingPreferences(
+    preferences: Readonly<ReaderTimingPreferences>
+  ): void {
+    validateReaderTimingPreferences(preferences);
+    this.readerTimingPreferences = { ...preferences };
+    this.cancelAutoPrompt();
+    this.autoPromptPaused = false;
+    if (this.lifecycleActive) {
+      this.scheduleAutoAdvance();
+    }
+  }
+
+  pauseAutoPrompt(): void {
+    this.autoPromptPaused = true;
+    this.cancelAutoPrompt();
+  }
+
+  resumeAutoPrompt(): void {
+    if (!this.autoPromptPaused) {
+      return;
+    }
+
+    this.autoPromptPaused = false;
+    this.scheduleAutoAdvance();
+  }
+
+  skipAutoPromptDelay(): boolean {
+    const prompt = this.currentState.autoAdvancePrompt;
+
+    if (!this.currentState.autoAdvanceEnabled || !prompt) {
+      return false;
+    }
+
+    this.cancelAutoPrompt();
+    this.executePrompt(prompt);
+    return true;
+  }
+
+  private cancelAutoPrompt(): void {
+    if (this.autoPromptTimer === undefined) {
+      return;
+    }
+
+    this.clock.clearTimeout(this.autoPromptTimer);
+    this.activeTimers = this.activeTimers.filter(
+      (timer) => timer !== this.autoPromptTimer
+    );
+    this.autoPromptTimer = undefined;
   }
 
   advanceTraditionalPage(): boolean {
@@ -312,12 +378,13 @@ export class Engine {
     return delay;
   }
 
-    clearActiveTimers(): void {
+  clearActiveTimers(): void {
   for (const timer of this.activeTimers) {
     this.clock.clearTimeout(timer);
   }
 
   this.activeTimers = [];
+  this.autoPromptTimer = undefined;
 
   console.log("Cleared active timers.");
  }
@@ -331,6 +398,14 @@ export class Engine {
       return;
     }
 
+    if (
+      !this.readerTimingPreferences.handsFreeEnabled ||
+      this.autoPromptPaused
+    ) {
+      console.log(`Hands-free progression inactive for ${state.id}`);
+      return;
+    }
+
     const prompt = state.autoAdvancePrompt;
 
     if (!prompt) {
@@ -339,7 +414,8 @@ export class Engine {
     }
 
     const effectiveDelay = this.getEffectiveDelay(
-      state.autoAdvanceDelay,
+      state.autoAdvanceDelay *
+        this.readerTimingPreferences.autoPromptTimingMultiplier,
       state
     );
 
@@ -347,7 +423,8 @@ export class Engine {
       `Auto advancing from ${this.currentState.id} in ${effectiveDelay}ms.`
     );
 
-    this.schedule(() => {
+    this.autoPromptTimer = this.schedule(() => {
+      this.autoPromptTimer = undefined;
       this.executePrompt(prompt);
     }, effectiveDelay);
   }
@@ -366,6 +443,7 @@ export class Engine {
  }
 
   private activateState(state: State): void {
+  this.lifecycleActive = true;
   this.currentState = state;
   this.renderer.renderState(state, this.renderContext);
   this.applyAudioLayerRules(state);

@@ -92,6 +92,8 @@ test("progress snapshot captures versioned reader state", () => {
       currentStateId: "state-2",
       navigationHistory: ["state-1"],
       fastForwardEnabled: true,
+      handsFreeEnabled: false,
+      autoPromptTimingMultiplier: 1,
       lifecyclePosition: "stateStart"
     }
   );
@@ -145,6 +147,8 @@ test("snapshot validation aggregates path-specific structural errors", () => {
         currentStateId: false,
         navigationHistory: ["state-1", 9],
         fastForwardEnabled: "yes",
+        handsFreeEnabled: "yes",
+        autoPromptTimingMultiplier: 9,
         lifecyclePosition: "midTimeline",
         unknown: true
       },
@@ -164,6 +168,8 @@ test("snapshot validation aggregates path-specific structural errors", () => {
           "$.currentStateId",
           "$.chapterIndex",
           "$.fastForwardEnabled",
+          "$.handsFreeEnabled",
+          "$.autoPromptTimingMultiplier",
           "$.navigationHistory[1]",
           "$.lifecyclePosition"
         ]
@@ -253,6 +259,8 @@ test("restoration restarts state timing deterministically", () => {
     currentStateId: "state-2",
     navigationHistory: ["state-1"],
     fastForwardEnabled: true,
+    handsFreeEnabled: true,
+    autoPromptTimingMultiplier: 1.5,
     lifecyclePosition: "stateStart"
   };
 
@@ -261,6 +269,10 @@ test("restoration restarts state timing deterministically", () => {
   assert.equal(engine.currentState, second);
   assert.deepEqual(engine.navigationHistory, ["state-1"]);
   assert.equal(engine.fastForwardActive, true);
+  assert.deepEqual(engine.readerTimingPreferences, {
+    handsFreeEnabled: true,
+    autoPromptTimingMultiplier: 1.5
+  });
   assert.equal(second.currentPhase, StatePhase.ACTIVE);
 
   clock.advanceBy(49);

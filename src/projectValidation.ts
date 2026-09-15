@@ -203,6 +203,22 @@ function applyProjectDefaults(data: unknown): void {
           }
         });
       }
+
+      if (
+        isRecord(state.autoAdvancePrompt) &&
+        isRecord(state.autoAdvancePrompt.transition)
+      ) {
+        applyDefaults(state.autoAdvancePrompt.transition, {
+          triggeredAudioCueIds: []
+        });
+
+        if (isRecord(state.autoAdvancePrompt.transition.effect)) {
+          applyDefaults(state.autoAdvancePrompt.transition.effect, {
+            allowFastForward: true,
+            locksInput: false
+          });
+        }
+      }
     });
   });
 }
@@ -1207,6 +1223,19 @@ function validateState(
     });
   }
 
+  if (state.autoAdvanceEnabled === true) {
+    validatePrompt(
+      state.autoAdvancePrompt,
+      `${path}.autoAdvancePrompt`,
+      issues
+    );
+  } else if (state.autoAdvancePrompt !== undefined) {
+    issues.push({
+      path: `${path}.autoAdvancePrompt`,
+      message: "is only allowed when autoAdvanceEnabled is true"
+    });
+  }
+
   const stringArrayFields = [
     "audioCueIds",
     "audioLayersToActivate",
@@ -1320,6 +1349,7 @@ function validateState(
       "timeline",
       "autoAdvanceEnabled",
       "autoAdvanceDelay",
+      "autoAdvancePrompt",
       "fastForwardEnabled",
       "fastForwardMultiplier"
     ],
@@ -1490,6 +1520,21 @@ function validateStoryGraph(
           pending.push(prompt.transition.destinationStateId);
         }
       });
+
+      if (
+        state.autoAdvanceEnabled === true &&
+        isRecord(state.autoAdvancePrompt) &&
+        isRecord(state.autoAdvancePrompt.transition) &&
+        typeof state.autoAdvancePrompt.transition.destinationStateId ===
+          "string" &&
+        statesById.has(
+          state.autoAdvancePrompt.transition.destinationStateId
+        )
+      ) {
+        pending.push(
+          state.autoAdvancePrompt.transition.destinationStateId
+        );
+      }
     }
 
     statesById.forEach((state, stateId) => {
@@ -1503,8 +1548,10 @@ function validateStoryGraph(
       }
 
       const hasOutgoingTransition =
-        Array.isArray(state.value.prompts) &&
-        state.value.prompts.length > 0;
+        (Array.isArray(state.value.prompts) &&
+          state.value.prompts.length > 0) ||
+        (state.value.autoAdvanceEnabled === true &&
+          isRecord(state.value.autoAdvancePrompt));
 
       if (!hasOutgoingTransition && state.value.isEnding !== true) {
         issues.push({
@@ -1749,6 +1796,39 @@ function validateProjectIntegrity(
           });
         }
       });
+    }
+
+    const autoAdvancePrompt = state.value.autoAdvancePrompt;
+
+    if (
+      isRecord(autoAdvancePrompt) &&
+      isRecord(autoAdvancePrompt.transition)
+    ) {
+      const transitionPath =
+        `${state.path}.autoAdvancePrompt.transition`;
+
+      validateReference(
+        autoAdvancePrompt.transition.destinationStateId,
+        `${transitionPath}.destinationStateId`,
+        stateIds,
+        "destination state",
+        issues
+      );
+
+      const audioIds =
+        autoAdvancePrompt.transition.triggeredAudioCueIds;
+
+      if (Array.isArray(audioIds)) {
+        audioIds.forEach((audioId, audioIndex) => {
+          validateReference(
+            audioId,
+            `${transitionPath}.triggeredAudioCueIds[${audioIndex}]`,
+            resourceIds.audio,
+            "audio cue",
+            issues
+          );
+        });
+      }
     }
 
     const cameraEvents = state.value.cameraEvents;
