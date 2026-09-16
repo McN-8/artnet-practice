@@ -22,6 +22,12 @@ import { StatePhase } from "./statePhase.js";
 import type { PresentationMode } from "./presentationMode.js";
 import { isTraditionalPresentationMode } from "./presentationMode.js";
 import {
+  NoopMediaAdapter
+} from "./mediaContracts.js";
+import type {
+  AnimationSequence, HapticPattern, MediaAdapter, ParticleEffect
+} from "./mediaContracts.js";
+import {
   DEFAULT_READER_TIMING_PREFERENCES,
   validateReaderTimingPreferences
 } from "./readerTimingPreferences.js";
@@ -45,6 +51,7 @@ export class Engine {
   clock: Clock;
 
   renderer: Renderer;
+  mediaAdapter: MediaAdapter;
   renderContext: RenderContext;
 
   // Audio Stack
@@ -72,7 +79,8 @@ export class Engine {
       DEFAULT_ACCESSIBILITY_PREFERENCES,
     presentationMode: PresentationMode = "interactive",
     readerTimingPreferences: Readonly<ReaderTimingPreferences> =
-      DEFAULT_READER_TIMING_PREFERENCES
+      DEFAULT_READER_TIMING_PREFERENCES,
+    mediaAdapter: MediaAdapter = new NoopMediaAdapter()
   ) {
     this.currentState = initialState;
     this.states = states;
@@ -83,6 +91,7 @@ export class Engine {
     this.assetCache = new AssetCache();
     this.clock = clock;
     this.renderer = renderer;
+    this.mediaAdapter = mediaAdapter;
     this.renderContext = createRenderContext(accessibility);
     this.activeTimers = [];
     this.fastForwardActive = false;
@@ -326,6 +335,44 @@ export class Engine {
             );
             break;
 
+          case "animation":
+            {
+              const sequence = event.payload as AnimationSequence;
+              if (this.renderContext.accessibility.reducedMotion ||
+                  !this.mediaAdapter.capabilities.animation) {
+                this.mediaAdapter.showReducedMotionPanel(
+                  sequence.reducedMotionPanelId
+                );
+              } else {
+                this.mediaAdapter.playAnimation(sequence);
+              }
+            }
+            break;
+
+          case "particles":
+            {
+              const effect = event.payload as ParticleEffect;
+              if (this.renderContext.accessibility.reducedMotion ||
+                  !this.mediaAdapter.capabilities.particles) {
+                this.mediaAdapter.showReducedMotionPanel(
+                  effect.reducedMotionPanelId
+                );
+              } else {
+                this.mediaAdapter.playParticles(effect);
+              }
+            }
+            break;
+
+          case "haptic":
+            this.mediaAdapter.showHapticAlternative(
+              (event.payload as HapticPattern).visualAlternative
+            );
+            if (this.mediaAdapter.capabilities.haptics &&
+                this.mediaAdapter.capabilities.hapticsEnabled) {
+              this.mediaAdapter.playHaptics(event.payload as HapticPattern);
+            }
+            break;
+
           default:
             console.log(
               `Timeline Event [${event.type}] triggered.`
@@ -385,6 +432,7 @@ export class Engine {
 
   this.activeTimers = [];
   this.autoPromptTimer = undefined;
+  this.mediaAdapter.cancelAll();
 
   console.log("Cleared active timers.");
  }

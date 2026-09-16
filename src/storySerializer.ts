@@ -19,6 +19,12 @@ import { Transition } from "./transition.js";
 import { TransitionEffect } from "./transitionEffect.js";
 import { VisualGroup } from "./visualGroup.js";
 import {
+  AnimationSequence,
+  HapticPattern,
+  MotionPath,
+  ParticleEffect
+} from "./mediaContracts.js";
+import {
   CURRENT_SCHEMA_VERSION,
   parseAndValidateProjectDocument
 } from "./projectValidation.js";
@@ -41,6 +47,10 @@ export class StorySerializer {
         cameraPaths: resources.cameraPaths.getAll(),
         panels: resources.panels.getAll(),
         visualGroups: resources.visualGroups.getAll(),
+        animationSequences: resources.animationSequences.getAll(),
+        motionPaths: resources.motionPaths.getAll(),
+        particleEffects: resources.particleEffects.getAll(),
+        hapticPatterns: resources.hapticPatterns.getAll(),
         panelGroups: resources.panelGroups.getAll().map(
           (panelGroup) => ({
             id: panelGroup.id,
@@ -181,6 +191,35 @@ export class StorySerializer {
     );
 
     const resources = new ArtNetResources();
+
+    for (const value of data.resources.animationSequences) {
+      resources.animationSequences.register(new AnimationSequence(
+        value.id, value.category, value.durationMs,
+        value.frames, value.audioClips, value.reducedMotionPanelId
+      ));
+    }
+    for (const value of data.resources.motionPaths) {
+      resources.motionPaths.register(new MotionPath(
+        value.id, value.durationMs, value.points
+      ));
+    }
+    for (const value of data.resources.particleEffects) {
+      resources.particleEffects.register(new ParticleEffect(
+        value.id, value.category, value.seed, value.emitterShape,
+        value.originX, value.originY, value.radius,
+        value.directionDegrees, value.coneDegrees, value.count,
+        value.lifetimeMs, value.speed, value.speedVariation,
+        value.scaleMin, value.scaleMax, value.rotationVariationDegrees,
+        value.visuals, value.boundsPolicy, value.reducedMotionPanelId,
+        value.motionPathId, value.motionPathIds
+      ));
+    }
+    for (const value of data.resources.hapticPatterns) {
+      resources.hapticPatterns.register(new HapticPattern(
+        value.id, value.durationMs, value.pulses,
+        value.visualAlternative
+      ));
+    }
 
     /*
      * Rebuild effects.
@@ -593,6 +632,18 @@ export class StorySerializer {
                 resources.overlays.get(
                   eventData.payloadId
                 );
+              break;
+
+            case "animation":
+              payload = resources.animationSequences.get(eventData.payloadId);
+              break;
+
+            case "particles":
+              payload = resources.particleEffects.get(eventData.payloadId);
+              break;
+
+            case "haptic":
+              payload = resources.hapticPatterns.get(eventData.payloadId);
               break;
 
             default:

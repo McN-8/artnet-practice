@@ -2,6 +2,7 @@ import { InputType } from "./inputType.js";
 import { migrateProjectDocument } from "./projectMigration.js";
 import { CURRENT_SCHEMA_VERSION } from "./projectSchema.js";
 import { PRESENTATION_MODES } from "./presentationMode.js";
+import { MAX_PARTICLES_V1 } from "./mediaContracts.js";
 import {
   createDefaultVisualTreatment,
   DEFORMATION_TYPES,
@@ -27,7 +28,10 @@ const TIMELINE_EVENT_TYPES = [
   "audio",
   "camera",
   "panelGroup",
-  "overlay"
+  "overlay",
+  "animation",
+  "particles",
+  "haptic"
 ] as const;
 
 export class ProjectValidationError extends Error {
@@ -77,6 +81,13 @@ function applyProjectDefaults(data: unknown): void {
   applyDefaults(data, { presentationMode: "interactive" });
 
   if (isRecord(data.resources)) {
+    for (const collection of [
+      "animationSequences", "motionPaths", "particleEffects", "hapticPatterns"
+    ]) {
+      if (data.resources[collection] === undefined) {
+        data.resources[collection] = [];
+      }
+    }
     if (data.resources.visualGroups === undefined) {
       data.resources.visualGroups = [];
     }
@@ -537,6 +548,215 @@ function validateObjectFields(
   );
 
   return value;
+}
+
+function validateTimedItems(
+  items: unknown,
+  path: string,
+  durationMs: unknown,
+  numbers: string[],
+  strings: string[],
+  issues: ProjectValidationIssue[]
+): void {
+  if (!Array.isArray(items)) {
+    addRequiredTypeIssue(items, path, "an array", issues);
+    return;
+  }
+  items.forEach((item, index) => {
+    const itemPath = `${path}[${index}]`;
+    const value = validateObjectFields(item, itemPath, {
+      numbers: ["atMs", ...numbers], strings
+    }, issues);
+    if (!value) return;
+    validateNumberRange(value.atMs, `${itemPath}.atMs`,
+      (number) => number >= 0 &&
+        (typeof durationMs !== "number" || number <= durationMs),
+      "must be within the resource duration", issues);
+  });
+}
+
+function validateAnimationSequence(value: unknown, path: string,
+  issues: ProjectValidationIssue[]): void {
+  const sequence = validateObjectFields(value, path, {
+    strings: ["id", "category", "reducedMotionPanelId"],
+    numbers: ["durationMs"], additional: ["frames", "audioClips"]
+  }, issues);
+  if (!sequence) return;
+  validateNumberRange(sequence.durationMs, `${path}.durationMs`,
+    (number) => number > 0, "must be greater than 0", issues);
+  validateTimedItems(sequence.frames, `${path}.frames`, sequence.durationMs,
+    [], ["panelId"], issues);
+  if (Array.isArray(sequence.frames) && sequence.frames.length === 0) {
+    issues.push({path: `${path}.frames`, message: "must contain at least one frame"});
+  }
+  validateTimedItems(sequence.audioClips, `${path}.audioClips`,
+    sequence.durationMs, [], ["audioCueId"], issues);
+}
+
+function validateMotionPath(value: unknown, path: string,
+  issues: ProjectValidationIssue[]): void {
+  const motion = validateObjectFields(value, path, {
+    strings: ["id"], numbers: ["durationMs"], additional: ["points"]
+  }, issues);
+  if (!motion) return;
+  validateNumberRange(motion.durationMs, `${path}.durationMs`,
+    (number) => number > 0, "must be greater than 0", issues);
+  validateTimedItems(motion.points, `${path}.points`, motion.durationMs,
+    ["x", "y"], [], issues);
+  if (Array.isArray(motion.points)) {
+    let previous = -1;
+    motion.points.forEach((point, index) => {
+      if (!isRecord(point)) return;
+      const pointPath = `${path}.points[${index}]`;
+      for (const axis of ["x", "y"]) validateNumberRange(
+        point[axis], `${pointPath}.${axis}`,
+        (number) => number >= 0 && number <= 1,
+        "must be between 0 and 1", issues
+      );
+      if (typeof point.atMs === "number") {
+        if (point.atMs <= previous) issues.push({
+          path: `${pointPath}.atMs`, message: "must increase strictly"
+        });
+        previous = point.atMs;
+      }
+    });
+    if (isRecord(motion.points[0]) && motion.points[0].atMs !== 0) {
+      issues.push({path: `${path}.points[0].atMs`,
+        message: "must start at 0"});
+    }
+    const last = motion.points[motion.points.length - 1];
+    if (isRecord(last) && last.atMs !== motion.durationMs) {
+      issues.push({path: `${path}.points[${motion.points.length - 1}].atMs`,
+        message: "must end at durationMs"});
+    }
+  }
+  if (Array.isArray(motion.points) && motion.points.length < 2) {
+    issues.push({path: `${path}.points`, message: "must contain at least two points"});
+  }
+}
+
+function validateParticleEffect(value: unknown, path: string,
+  issues: ProjectValidationIssue[]): void {
+  const effect = validateObjectFields(value, path, {
+    strings: ["id", "category", "emitterShape", "boundsPolicy",
+      "reducedMotionPanelId"],
+    numbers: ["seed", "originX", "originY", "radius",
+      "directionDegrees", "coneDegrees", "count", "lifetimeMs",
+      "speed", "speedVariation", "scaleMin", "scaleMax",
+      "rotationVariationDegrees"],
+    additional: ["visuals", "motionPathId", "motionPathIds"]
+  }, issues);
+  if (!effect) return;
+  validateCatalogValue(effect.emitterShape, `${path}.emitterShape`,
+    ["point", "circle"], "emitter shape", issues);
+  validateCatalogValue(effect.boundsPolicy, `${path}.boundsPolicy`,
+    ["none", "stopAtCanvas"], "bounds policy", issues);
+  if (effect.motionPathId !== undefined && typeof effect.motionPathId !== "string") {
+    addRequiredTypeIssue(effect.motionPathId, `${path}.motionPathId`,
+      "a string", issues);
+  }
+  if (effect.motionPathIds !== undefined) {
+    if (!Array.isArray(effect.motionPathIds)) {
+      addRequiredTypeIssue(effect.motionPathIds, `${path}.motionPathIds`,
+        "an array", issues);
+    } else {
+      validateStringArrayItems(effect.motionPathIds,
+        `${path}.motionPathIds`, issues);
+      if (typeof effect.count === "number" &&
+          effect.motionPathIds.length !== effect.count) {
+        issues.push({path: `${path}.motionPathIds`,
+          message: "must contain one path ID per particle"});
+      }
+    }
+  }
+  if (typeof effect.seed === "number" &&
+      (!Number.isSafeInteger(effect.seed) || effect.seed < 0 ||
+        effect.seed > 0xffffffff)) {
+    issues.push({path: `${path}.seed`, message: "must be a uint32 seed"});
+  }
+  if (typeof effect.count === "number" &&
+      (!Number.isInteger(effect.count) || effect.count < 1 ||
+        effect.count > MAX_PARTICLES_V1)) {
+    issues.push({path: `${path}.count`,
+      message: `must be an integer from 1 to ${MAX_PARTICLES_V1}`});
+  }
+  for (const field of ["originX", "originY", "radius", "speedVariation"]) {
+    validateNumberRange(effect[field], `${path}.${field}`,
+      (number) => number >= 0 && number <= 1,
+      "must be between 0 and 1", issues);
+  }
+  for (const field of ["lifetimeMs", "scaleMin", "scaleMax"]) {
+    validateNumberRange(effect[field], `${path}.${field}`,
+      (number) => number > 0, "must be greater than 0", issues);
+  }
+  for (const field of ["speed", "rotationVariationDegrees"]) {
+    validateNumberRange(effect[field], `${path}.${field}`,
+      (number) => number >= 0, "must be nonnegative", issues);
+  }
+  validateNumberRange(effect.coneDegrees, `${path}.coneDegrees`,
+    (number) => number > 0 && number <= 360,
+    "must be greater than 0 and at most 360", issues);
+  if (typeof effect.scaleMin === "number" &&
+      typeof effect.scaleMax === "number" &&
+      effect.scaleMin > effect.scaleMax) {
+    issues.push({path: `${path}.scaleMax`,
+      message: "must be greater than or equal to scaleMin"});
+  }
+  if (!Array.isArray(effect.visuals)) {
+    addRequiredTypeIssue(effect.visuals, `${path}.visuals`, "an array", issues);
+  } else {
+    if (effect.visuals.length === 0) {
+      issues.push({path: `${path}.visuals`,
+        message: "must contain at least one visual"});
+    }
+    effect.visuals.forEach((visual, index) => {
+      const visualPath = `${path}.visuals[${index}]`;
+      const item = validateObjectFields(visual, visualPath,
+        {strings: ["panelId"], numbers: ["weight"]}, issues);
+      if (item) validateNumberRange(item.weight, `${visualPath}.weight`,
+        (number) => number > 0, "must be greater than 0", issues);
+    });
+  }
+}
+
+function validateHapticPattern(value: unknown, path: string,
+  issues: ProjectValidationIssue[]): void {
+  const pattern = validateObjectFields(value, path, {
+    strings: ["id", "visualAlternative"],
+    numbers: ["durationMs"], additional: ["pulses"]
+  }, issues);
+  if (!pattern) return;
+  if (typeof pattern.visualAlternative === "string" &&
+      pattern.visualAlternative.trim().length === 0) {
+    issues.push({path: `${path}.visualAlternative`,
+      message: "must be nonblank"});
+  }
+  validateNumberRange(pattern.durationMs, `${path}.durationMs`,
+    (number) => number > 0, "must be greater than 0", issues);
+  validateTimedItems(pattern.pulses, `${path}.pulses`, pattern.durationMs,
+    ["durationMs", "intensity"], [], issues);
+  if (Array.isArray(pattern.pulses)) {
+    if (pattern.pulses.length === 0) {
+      issues.push({path: `${path}.pulses`,
+        message: "must contain at least one pulse"});
+    }
+    pattern.pulses.forEach((pulse, index) => {
+      if (!isRecord(pulse)) return;
+      const pulsePath = `${path}.pulses[${index}]`;
+      validateNumberRange(pulse.durationMs, `${pulsePath}.durationMs`,
+        (number) => number > 0, "must be greater than 0", issues);
+      validateNumberRange(pulse.intensity, `${pulsePath}.intensity`,
+        (number) => number >= 0 && number <= 1,
+        "must be between 0 and 1", issues);
+      if (typeof pulse.atMs === "number" &&
+          typeof pulse.durationMs === "number" &&
+          typeof pattern.durationMs === "number" &&
+          pulse.atMs + pulse.durationMs > pattern.durationMs) {
+        issues.push({path: `${pulsePath}.durationMs`,
+          message: "must end within the pattern duration"});
+      }
+    });
+  }
 }
 
 function validateEffectResource(
@@ -1804,7 +2024,11 @@ function validateProjectIntegrity(
     "cameraPaths",
     "panels",
     "panelGroups",
-    "visualGroups"
+    "visualGroups",
+    "animationSequences",
+    "motionPaths",
+    "particleEffects",
+    "hapticPatterns"
   ] as const;
 
   const resourceIds: Partial<
@@ -1841,6 +2065,46 @@ function validateProjectIntegrity(
   }
 
   const panelGroups = data.resources.panelGroups;
+
+  const animations = data.resources.animationSequences;
+  if (Array.isArray(animations)) animations.forEach((sequence, index) => {
+    if (!isRecord(sequence)) return;
+    validateReference(sequence.reducedMotionPanelId,
+      `$.resources.animationSequences[${index}].reducedMotionPanelId`,
+      resourceIds.panels, "panel", issues);
+    if (Array.isArray(sequence.frames)) sequence.frames.forEach((frame, frameIndex) => {
+      if (isRecord(frame)) validateReference(frame.panelId,
+        `$.resources.animationSequences[${index}].frames[${frameIndex}].panelId`,
+        resourceIds.panels, "panel", issues);
+    });
+    if (Array.isArray(sequence.audioClips)) sequence.audioClips.forEach((clip, clipIndex) => {
+      if (isRecord(clip)) validateReference(clip.audioCueId,
+        `$.resources.animationSequences[${index}].audioClips[${clipIndex}].audioCueId`,
+        resourceIds.audio, "audio cue", issues);
+    });
+  });
+
+  const particles = data.resources.particleEffects;
+  if (Array.isArray(particles)) particles.forEach((effect, index) => {
+    if (!isRecord(effect)) return;
+    const effectPath = `$.resources.particleEffects[${index}]`;
+    validateReference(effect.reducedMotionPanelId,
+      `${effectPath}.reducedMotionPanelId`, resourceIds.panels, "panel", issues);
+    if (effect.motionPathId !== undefined) validateReference(
+      effect.motionPathId, `${effectPath}.motionPathId`,
+      resourceIds.motionPaths, "motion path", issues);
+    if (Array.isArray(effect.motionPathIds)) {
+      effect.motionPathIds.forEach((pathId, pathIndex) => validateReference(
+        pathId, `${effectPath}.motionPathIds[${pathIndex}]`,
+        resourceIds.motionPaths, "motion path", issues
+      ));
+    }
+    if (Array.isArray(effect.visuals)) effect.visuals.forEach((visual, visualIndex) => {
+      if (isRecord(visual)) validateReference(visual.panelId,
+        `${effectPath}.visuals[${visualIndex}].panelId`,
+        resourceIds.panels, "panel", issues);
+    });
+  });
 
   const visualGroups = data.resources.visualGroups;
 
@@ -2060,7 +2324,10 @@ function validateProjectIntegrity(
         audio: [resourceIds.audio, "audio cue"],
         camera: [resourceIds.cameraPaths, "camera path"],
         panelGroup: [resourceIds.panelGroups, "panel group"],
-        overlay: [resourceIds.overlays, "overlay"]
+        overlay: [resourceIds.overlays, "overlay"],
+        animation: [resourceIds.animationSequences, "animation sequence"],
+        particles: [resourceIds.particleEffects, "particle effect"],
+        haptic: [resourceIds.hapticPatterns, "haptic pattern"]
       };
 
       timeline.events.forEach((event, eventIndex) => {
@@ -2159,7 +2426,7 @@ export function validateProjectDocument(
     addUnknownFieldIssues(
       data.resources,
       "$.resources",
-      ["effects", "audio", "overlays", "cameraPaths", "panels", "panelGroups", "visualGroups"],
+      ["effects", "audio", "overlays", "cameraPaths", "panels", "panelGroups", "visualGroups", "animationSequences", "motionPaths", "particleEffects", "hapticPatterns"],
       issues
     );
 
@@ -2170,7 +2437,11 @@ export function validateProjectDocument(
       "cameraPaths",
       "panels",
       "panelGroups",
-      "visualGroups"
+      "visualGroups",
+      "animationSequences",
+      "motionPaths",
+      "particleEffects",
+      "hapticPatterns"
     ];
 
     for (const collection of resourceCollections) {
@@ -2189,7 +2460,11 @@ export function validateProjectDocument(
       ["cameraPaths", validateCameraPathResource],
       ["panels", validatePanelResource],
       ["panelGroups", validatePanelGroupResource],
-      ["visualGroups", validateVisualGroupResource]
+      ["visualGroups", validateVisualGroupResource],
+      ["animationSequences", validateAnimationSequence],
+      ["motionPaths", validateMotionPath],
+      ["particleEffects", validateParticleEffect],
+      ["hapticPatterns", validateHapticPattern]
     ] as const;
 
     for (

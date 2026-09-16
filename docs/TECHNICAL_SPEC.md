@@ -86,10 +86,14 @@ The editor and player should consume the same domain rules and serialization con
 | `PanelReveal` | Panel layout and reveal instruction | Holds a resolved `Panel` at runtime plus delay, x/y, width/height, and rotation; serializes the reference as `panelId` |
 | `VisualTreatment` | Non-destructive instance styling | Composes transform, appearance, optional crop/mask, and bounded deformation without modifying its source resource |
 | `VisualGroup` | Reusable flat grouping contract | Registered by ID; references panel IDs and owns an independently cloned group treatment |
+| `AnimationSequence` | Reusable frame-and-audio timing description | References panel IDs for frames and reduced-motion stills, and audio-cue IDs for clips |
+| `MotionPath` | Reusable manually authored choreography | Ordered time/coordinate points; may be selected by a particle effect |
+| `ParticleEffect` | Seeded procedural burst/emitter description | Weighted panel choices, bounded count, direction cone, variation, optional motion-path ID, and reduced-motion still |
+| `HapticPattern` | Timed vibration intent | Pulse timing/intensity plus required textual or visual alternative |
 | `ZoomRegion` | Inspectable target in a state | ID, bounds, and textual description |
 | `Asset` | State-associated preload descriptor | File and asset type |
 | `AudioStack` / audio layer | Layered audio configuration | Maintains layers and activation/deactivation behavior |
-| `ArtNetResources` | Project-scoped resource library | Owns registries for effects, audio, overlays, camera paths, panels, and panel groups |
+| `ArtNetResources` | Project-scoped resource library | Owns typed registries for visual, audio, motion, animation, particle, and haptic resources |
 | `Engine` | Runtime coordinator | Holds current state; manages inputs, transition pipeline, timers, timelines, assets, layers, and playback dispatch |
 
 ### 3.2 Relationship rules — Implemented
@@ -232,7 +236,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 
 - State assets identify a file and type.
 - The engine preloads nearby destination assets, caches already-loaded assets, and can unload assets considered distant.
-- `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, panel groups, and visual groups.
+- `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, panel groups, visual groups, animation sequences, motion paths, particle effects, and haptic patterns.
 - Serialization stores canonical resource definitions once and state/timeline references by ID for the resource types already migrated.
 - Deserialization reconstructs registries first, then resolves state and timeline references into runtime class instances.
 
@@ -259,15 +263,16 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - Overlay assets can identify a visual asset, path, rotation, duration, and whether they follow the path.
 - Transition effects define type, duration, fast-forward permission, and input-lock behavior.
 - Timed events are cleared on transition, preventing stale motion/effects from executing in a later state.
+- Project-scoped registries now hold animation sequences, motion paths, particle effects, and haptic patterns. They serialize once and timeline events of type `animation`, `particles`, or `haptic` carry IDs that load back into typed resource instances.
+- Animation sequences declare a duration, category, frame panel IDs, audio-cue clip IDs, and a reduced-motion panel ID. Manual paths declare timed x/y points and can be referenced by particle effects.
+- Particle effects declare a version-1 `mulberry32` seed, point/circle emitter, normalized origin/radius, direction cone, at most 500 particles, lifetime, speed/scale/rotation variation, weighted panel identities, bounds policy, optional shared or per-particle manual path IDs, and reduced-motion still. `sampleParticleSpawns` produces repeatable plans from the same definition and seed; a 180-degree cone represents a ground-origin half-space burst. Manual paths use normalized x/y points from time zero through their declared duration.
+- Haptic patterns declare timed pulses with normalized intensity and a required non-haptic narrative alternative. The capability-driven `MediaAdapter` may play supported media; it always receives the haptic alternative and uses still-panel callbacks for unavailable or reduced-motion animation/particles. State timer cleanup calls adapter cancellation. The default adapter performs no device actions.
+- Validation enforces nested field types, supported catalogs, finite times and bounded ranges, required alternatives, typed references, and duplicate IDs; older version-1 projects default the four new registries to empty arrays.
 
 ### Planned
 
 - Production render adapters for camera transforms, particles/effects, overlays, transitions, and compositing.
-- Define reusable, typed animation-sequence resources composed of referenced frame or visual assets and time-aligned tracks. Audio clips reference registered cues; categorization metadata supports reusable creator libraries without affecting playback semantics.
-- Define reusable procedural particle-effect resources with seeded randomness, emitter origin and shape, direction cone, count, lifetime, velocity, scale, rotation and identity variation, weighted visual-resource choices, bounds or collision policy, reduced-motion substitution, and enforceable particle budgets.
-- Preserve advanced manual choreography through reusable motion-path resources assignable to a group or individual particles. Procedural emitters remain the default; authored paths use the same deterministic clock, validation, preview, cancellation, and resource-budget contracts.
-- Define burst, splash, and explosion presets as parameterized particle resources. Direction cones must support full-circle emission and bounded arcs such as ground-origin half-space bursts.
-- Define capability-driven haptic resources and timeline events with timed pulses, intensity, and regular or irregular patterns. Playback must honor platform and reader preferences, degrade safely, and never carry essential information without a visual or textual equivalent.
+- Implement production animation/particle renderers and device haptic adapters, including real frame/audio synchronization, manual-path interpolation, bounds handling, quality tiers, and user-facing preference controls. The current slice is a portable data and dispatch contract, not media playback evidence.
 - A supported, versioned catalog of effect and easing types with validated parameters.
 - Deterministic conflict resolution when multiple camera or transform instructions overlap.
 - Reduced-motion alternatives and author preview of accessibility substitutions.
@@ -343,10 +348,10 @@ No visual editor is implemented in the evidenced prototype.
 - Prompt validation requires a supported input type, optional string target ID, and a transition containing a destination-state ID, transition-effect fields, and string triggered-audio IDs.
 - An enabled auto-advance requires an `autoAdvancePrompt` with the same nested prompt and transition contract. Disabled states reject a stray auto-prompt. Loading rebuilds the auto-prompt as real `Prompt`, `Transition`, and `TransitionEffect` objects and resolves its triggered audio IDs.
 - Timeline events require a numeric timestamp, supported dispatch type, and string payload ID. Camera events require a numeric trigger time and string camera-path ID.
-- Resource validation covers effects, audio cues, overlays, camera paths with focal points, panels, and panel groups with reveals. Each resource entry must match the field types consumed by reconstruction.
+- Resource validation covers effects, audio cues, overlays, camera paths with focal points, panels and panel groups, visual groups, animation sequences, motion paths, particle effects, and haptic patterns. Each resource entry must match the field types consumed by reconstruction.
 - Visual-treatment validation enforces complete nested objects, finite values, positive scale, normalized origins/crops/opacity/feathering, bounded deformation, and supported mask/deformation catalogs. Visual-group panel IDs resolve against the panel registry with indexed paths.
 - Remaining state validation covers zoom regions, assets, camera behaviors, camera focal points, resource-ID arrays, and audio-layer name arrays.
-- Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, panel-reveal references, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
+- Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, panel-reveal references, animation frames/audio clips, particle visuals/manual paths, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
 - Duplicate definitions are rejected within each typed resource registry, and duplicate state IDs are rejected across all chapters.
 - Each chapter entry must reference a state owned by that chapter. Reachability is computed from that entry through manual and auto-prompt transitions whose destinations remain inside the chapter; story-wide transition destination validation continues to permit cross-chapter references.
 - A state with no manual or auto-prompt transitions must declare `isEnding: true`, and a state with one or more such transitions must declare `isEnding: false`. Reachable cycles are valid and are not treated as errors.
@@ -548,7 +553,11 @@ The demonstrated format is structurally equivalent to:
         }
       }
     ],
-    "panelGroups": []
+    "panelGroups": [],
+    "animationSequences": [],
+    "motionPaths": [],
+    "particleEffects": [],
+    "hapticPatterns": []
   },
   "chapters": [
     {
@@ -616,7 +625,7 @@ The demonstrated format is structurally equivalent to:
 }
 ```
 
-Version 1 requires the displayed top-level metadata, five typed resource arrays, chapter structure, state fields, and the nested contents demonstrated by the serializer before reconstruction. Structural/type validation covers the complete demonstrated shape. Reference integrity covers the typed registries and transition destinations, with resource IDs unique per registry and state IDs unique across the story. Constructor-backed optional fields are defaulted before validation; numeric values and closed catalogs follow the policies in Section 12; unknown fields are rejected. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Manual and auto-prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
+Version 1 requires the displayed top-level metadata, typed resource arrays, chapter structure, state fields, and the nested contents demonstrated by the serializer before reconstruction. Structural/type validation covers the complete demonstrated shape. Reference integrity covers the typed registries and transition destinations, with resource IDs unique per registry and state IDs unique across the story. Constructor-backed optional fields are defaulted before validation; numeric values and closed catalogs follow the policies in Section 12; unknown fields are rejected. Additional implemented state fields include zoom settings/regions, audio layer directives, assets, camera behaviors/focal points, auto-advance settings, and fast-forward settings. Manual and auto-prompt transitions serialize triggered audio as resource IDs; loading rebuilds `Prompt`, `Transition`, and `TransitionEffect` instances and attaches registered `AudioCue` objects. Camera events serialize their trigger time and a camera-path resource ID; loading reconstructs each runtime `CameraEvent` with the registered `CameraPath`. The displayed shape is illustrative, not yet a normative JSON Schema.
 
 ## 19. Unresolved questions
 
@@ -643,7 +652,7 @@ The following decisions must remain open until explicitly resolved:
 19. How should simultaneous or overlapping timeline instructions resolve priority and cancellation?
 20. Where is editor-only metadata stored, and what portion is included in portable/exported projects?
 21. What transform and deformation subset can every production renderer reproduce consistently, and which operations require baked derivatives or graceful fallback?
-22. What deterministic random-number algorithm, particle ceilings, and device-quality tiers form the version-1 procedural-effects contract?
+22. Which device-quality tiers and production rendering budgets should supplement the version-1 seeded algorithm and 500-particle ceiling?
 23. How are reusable creator-library resources packaged, licensed, versioned, updated, and detached from their source library?
 24. Which platforms expose acceptable haptic capabilities, and what intensity normalization and user-consent rules apply on each?
 
@@ -651,8 +660,7 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
-2. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
+1. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
 
 ## 21. Canonical maintenance rules
 
