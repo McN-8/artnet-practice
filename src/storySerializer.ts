@@ -17,6 +17,7 @@ import { TimelineEvent } from "./timelineEvent.js";
 import { Prompt } from "./prompt.js";
 import { Transition } from "./transition.js";
 import { TransitionEffect } from "./transitionEffect.js";
+import { VisualGroup } from "./visualGroup.js";
 import {
   CURRENT_SCHEMA_VERSION,
   parseAndValidateProjectDocument
@@ -39,6 +40,7 @@ export class StorySerializer {
         overlays: resources.overlays.getAll(),
         cameraPaths: resources.cameraPaths.getAll(),
         panels: resources.panels.getAll(),
+        visualGroups: resources.visualGroups.getAll(),
         panelGroups: resources.panelGroups.getAll().map(
           (panelGroup) => ({
             id: panelGroup.id,
@@ -49,7 +51,8 @@ export class StorySerializer {
               y: reveal.y,
               width: reveal.width,
               height: reveal.height,
-              rotation: reveal.rotation
+              rotation: reveal.rotation,
+              treatment: reveal.treatment
             }))
           })
         )
@@ -277,6 +280,16 @@ export class StorySerializer {
       );
     }
 
+    for (const groupData of data.resources.visualGroups) {
+      resources.visualGroups.register(
+        new VisualGroup(
+          groupData.id,
+          groupData.panelIds,
+          groupData.treatment
+        )
+      );
+    }
+
     /* Rebuild panel groups and resolve their panel references. */
     for (
       const panelGroupData
@@ -308,7 +321,8 @@ export class StorySerializer {
           revealData.y,
           revealData.width,
           revealData.height,
-          revealData.rotation
+          revealData.rotation,
+          revealData.treatment
         );
 
         panelGroup.addReveal(reveal);

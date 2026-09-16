@@ -2,6 +2,11 @@ import { InputType } from "./inputType.js";
 import { migrateProjectDocument } from "./projectMigration.js";
 import { CURRENT_SCHEMA_VERSION } from "./projectSchema.js";
 import { PRESENTATION_MODES } from "./presentationMode.js";
+import {
+  createDefaultVisualTreatment,
+  DEFORMATION_TYPES,
+  MASK_SHAPES
+} from "./visualTransformation.js";
 
 export { CURRENT_SCHEMA_VERSION } from "./projectSchema.js";
 
@@ -72,6 +77,9 @@ function applyProjectDefaults(data: unknown): void {
   applyDefaults(data, { presentationMode: "interactive" });
 
   if (isRecord(data.resources)) {
+    if (data.resources.visualGroups === undefined) {
+      data.resources.visualGroups = [];
+    }
     if (data.resources.panels === undefined) {
       const panelIds = new Set<string>();
 
@@ -141,10 +149,22 @@ function applyProjectDefaults(data: unknown): void {
               y: 0,
               width: 100,
               height: 100,
-              rotation: 0
+              rotation: 0,
+              treatment: createDefaultVisualTreatment()
             });
           }
         });
+      });
+    }
+
+    if (Array.isArray(data.resources.visualGroups)) {
+      data.resources.visualGroups.forEach((group) => {
+        if (isRecord(group)) {
+          applyDefaults(group, {
+            panelIds: [],
+            treatment: createDefaultVisualTreatment()
+          });
+        }
       });
     }
   }
@@ -221,6 +241,151 @@ function applyProjectDefaults(data: unknown): void {
       }
     });
   });
+}
+
+function validateVisualTreatment(
+  treatment: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  if (!isRecord(treatment)) {
+    addRequiredTypeIssue(treatment, path, "an object", issues);
+    return;
+  }
+
+  addUnknownFieldIssues(
+    treatment,
+    path,
+    ["transform", "appearance", "deformation", "crop", "mask"],
+    issues
+  );
+
+  const transform = validateObjectFields(
+    treatment.transform,
+    `${path}.transform`,
+    {
+      numbers: [
+        "translateX", "translateY", "scaleX", "scaleY", "rotation",
+        "skewX", "skewY", "originX", "originY"
+      ],
+      booleans: ["flipX", "flipY"]
+    },
+    issues
+  );
+
+  if (transform) {
+    for (const field of ["scaleX", "scaleY"]) {
+      validateNumberRange(
+        transform[field], `${path}.transform.${field}`,
+        (number) => number > 0, "must be greater than 0", issues
+      );
+    }
+    for (const field of ["originX", "originY"]) {
+      validateNumberRange(
+        transform[field], `${path}.transform.${field}`,
+        (number) => number >= 0 && number <= 1,
+        "must be between 0 and 1", issues
+      );
+    }
+  }
+
+  const appearance = validateObjectFields(
+    treatment.appearance,
+    `${path}.appearance`,
+    {
+      strings: ["filter", "outlineColor"],
+      numbers: ["opacity", "outlineWidth"]
+    },
+    issues
+  );
+
+  if (appearance) {
+    validateNumberRange(
+      appearance.opacity, `${path}.appearance.opacity`,
+      (number) => number >= 0 && number <= 1,
+      "must be between 0 and 1", issues
+    );
+    validateNumberRange(
+      appearance.outlineWidth, `${path}.appearance.outlineWidth`,
+      (number) => number >= 0,
+      "must be greater than or equal to 0", issues
+    );
+  }
+
+  const deformation = validateObjectFields(
+    treatment.deformation,
+    `${path}.deformation`,
+    { strings: ["type"], numbers: ["amountX", "amountY"] },
+    issues
+  );
+
+  if (deformation) {
+    validateCatalogValue(
+      deformation.type, `${path}.deformation.type`,
+      DEFORMATION_TYPES, "deformation type", issues
+    );
+    for (const field of ["amountX", "amountY"]) {
+      validateNumberRange(
+        deformation[field], `${path}.deformation.${field}`,
+        (number) => number >= -1 && number <= 1,
+        "must be between -1 and 1", issues
+      );
+    }
+  }
+
+  if (treatment.crop !== undefined) {
+    const crop = validateObjectFields(
+      treatment.crop, `${path}.crop`,
+      { numbers: ["x", "y", "width", "height"] }, issues
+    );
+    if (crop) {
+      for (const field of ["x", "y", "width", "height"]) {
+        validateNumberRange(
+          crop[field], `${path}.crop.${field}`,
+          (number) => number >= 0 && number <= 1,
+          "must be between 0 and 1", issues
+        );
+      }
+    }
+  }
+
+  if (treatment.mask !== undefined) {
+    const mask = validateObjectFields(
+      treatment.mask, `${path}.mask`,
+      { strings: ["shape"], numbers: ["feather"] }, issues
+    );
+    if (mask) {
+      validateCatalogValue(
+        mask.shape, `${path}.mask.shape`, MASK_SHAPES, "mask shape", issues
+      );
+      validateNumberRange(
+        mask.feather, `${path}.mask.feather`,
+        (number) => number >= 0 && number <= 1,
+        "must be between 0 and 1", issues
+      );
+    }
+  }
+}
+
+function validateVisualGroupResource(
+  group: unknown,
+  path: string,
+  issues: ProjectValidationIssue[]
+): void {
+  const value = validateObjectFields(
+    group,
+    path,
+    { strings: ["id"], additional: ["panelIds", "treatment"] },
+    issues
+  );
+
+  if (!value) return;
+  if (!Array.isArray(value.panelIds)) {
+    addRequiredTypeIssue(value.panelIds, `${path}.panelIds`, "an array", issues);
+  } else {
+    validateStringArrayItems(value.panelIds, `${path}.panelIds`, issues);
+  }
+  validateVisualTreatment(value.treatment, `${path}.treatment`, issues);
 }
 
 function addUnknownFieldIssues(
@@ -602,7 +767,8 @@ function validatePanelReveal(
         "width",
         "height",
         "rotation"
-      ]
+      ],
+      additional: ["treatment"]
     },
     issues
   );
@@ -610,6 +776,8 @@ function validatePanelReveal(
   if (!value) {
     return;
   }
+
+  validateVisualTreatment(value.treatment, `${path}.treatment`, issues);
 
   validateNumberRange(
     value.delay,
@@ -1635,7 +1803,8 @@ function validateProjectIntegrity(
     "overlays",
     "cameraPaths",
     "panels",
-    "panelGroups"
+    "panelGroups",
+    "visualGroups"
   ] as const;
 
   const resourceIds: Partial<
@@ -1672,6 +1841,39 @@ function validateProjectIntegrity(
   }
 
   const panelGroups = data.resources.panelGroups;
+
+  const visualGroups = data.resources.visualGroups;
+
+  if (Array.isArray(visualGroups)) {
+    const groupedPanelIds = new Set<string>();
+
+    visualGroups.forEach((group, groupIndex) => {
+      if (!isRecord(group) || !Array.isArray(group.panelIds)) return;
+      group.panelIds.forEach((panelId, panelIndex) => {
+        const panelPath =
+          `$.resources.visualGroups[${groupIndex}].panelIds[${panelIndex}]`;
+
+        validateReference(
+          panelId,
+          panelPath,
+          resourceIds.panels,
+          "panel",
+          issues
+        );
+
+        if (typeof panelId === "string") {
+          if (groupedPanelIds.has(panelId)) {
+            issues.push({
+              path: panelPath,
+              message: `duplicates grouped panel "${panelId}"`
+            });
+          } else {
+            groupedPanelIds.add(panelId);
+          }
+        }
+      });
+    });
+  }
 
   if (Array.isArray(panelGroups)) {
     panelGroups.forEach((panelGroup, panelGroupIndex) => {
@@ -1957,7 +2159,7 @@ export function validateProjectDocument(
     addUnknownFieldIssues(
       data.resources,
       "$.resources",
-      ["effects", "audio", "overlays", "cameraPaths", "panels", "panelGroups"],
+      ["effects", "audio", "overlays", "cameraPaths", "panels", "panelGroups", "visualGroups"],
       issues
     );
 
@@ -1967,7 +2169,8 @@ export function validateProjectDocument(
       "overlays",
       "cameraPaths",
       "panels",
-      "panelGroups"
+      "panelGroups",
+      "visualGroups"
     ];
 
     for (const collection of resourceCollections) {
@@ -1985,7 +2188,8 @@ export function validateProjectDocument(
       ["overlays", validateOverlayResource],
       ["cameraPaths", validateCameraPathResource],
       ["panels", validatePanelResource],
-      ["panelGroups", validatePanelGroupResource]
+      ["panelGroups", validatePanelGroupResource],
+      ["visualGroups", validateVisualGroupResource]
     ] as const;
 
     for (

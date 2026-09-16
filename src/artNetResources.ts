@@ -5,6 +5,7 @@ import { OverlayAsset } from "./overlayAsset.js";
 import { CameraPath } from "./cameraPath.js";
 import { PanelGroup } from "./panelGroup.js";
 import { Panel } from "./panel.js";
+import { VisualGroup } from "./visualGroup.js";
 
 export class ArtNetResources {
   effects: ResourceRegistry<Effect>;
@@ -13,6 +14,7 @@ export class ArtNetResources {
   cameraPaths: ResourceRegistry<CameraPath>;
   panelGroups: ResourceRegistry<PanelGroup>;
   panels: ResourceRegistry<Panel>;
+  visualGroups: ResourceRegistry<VisualGroup>;
 
   constructor() {
     this.effects = new ResourceRegistry<Effect>();
@@ -21,5 +23,6 @@ export class ArtNetResources {
     this.cameraPaths = new ResourceRegistry<CameraPath>();
     this.panelGroups = new ResourceRegistry<PanelGroup>();
     this.panels = new ResourceRegistry<Panel>();
+    this.visualGroups = new ResourceRegistry<VisualGroup>();
   }
 }

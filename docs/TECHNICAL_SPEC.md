@@ -84,6 +84,8 @@ The editor and player should consume the same domain rules and serialization con
 | `PanelGroup` | Coordinated panel reveal unit | Owns `PanelReveal[]` |
 | `Panel` | Reusable visual panel definition | Registered by ID; optionally carries an asset and accessible description |
 | `PanelReveal` | Panel layout and reveal instruction | Holds a resolved `Panel` at runtime plus delay, x/y, width/height, and rotation; serializes the reference as `panelId` |
+| `VisualTreatment` | Non-destructive instance styling | Composes transform, appearance, optional crop/mask, and bounded deformation without modifying its source resource |
+| `VisualGroup` | Reusable flat grouping contract | Registered by ID; references panel IDs and owns an independently cloned group treatment |
 | `ZoomRegion` | Inspectable target in a state | ID, bounds, and textual description |
 | `Asset` | State-associated preload descriptor | File and asset type |
 | `AudioStack` / audio layer | Layered audio configuration | Maintains layers and activation/deactivation behavior |
@@ -207,11 +209,15 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - The engine schedules each reveal independently and cancels pending reveals when state timers are cleared.
 - `Renderer` is injectable. `PrototypeRenderer` preserves console diagnostics; no DOM, canvas, native, or other production renderer is implemented.
 - Audio layer activation/deactivation directives are attached to states; cues also carry a `layerGroup` classification.
+- Every panel reveal owns a cloned `VisualTreatment`. Its transform supports translation, positive independent scale, rotation, skew, normalized origin, and directional flips. Its appearance supports opacity, a renderer-defined filter string, and outline width/color.
+- Optional crop rectangles use normalized 0–1 source coordinates. Optional masks support rectangle or ellipse with normalized feathering. Deformation supports `none`, `stretch`, or `squeeze` with each axis bounded to -1–1.
+- `VisualGroup` is a reusable resource containing panel IDs and a cloned treatment. Groups are flat in version 1, and a panel may belong to at most one group so treatment lookup is deterministic; groups do not mutate panels, reveal treatments, or one another.
+- Rendering composition order is the reveal layout rectangle, then any applicable reusable group treatment, then the reveal's instance treatment. A production renderer is not yet implemented, so this slice establishes portable data and validation rather than visual fidelity evidence.
+- Newly serialized reveals include their complete treatment and projects include `resources.visualGroups`. Older version-1 projects default missing reveal treatments to identity values and a missing visual-group registry to an empty array.
 
 ### Planned
 
 - Layout constraints, clipping, safe areas, aspect-ratio policy, and deterministic hit testing.
-- Define shared non-destructive visual placement contracts for transforms, crop/masks, flips, opacity, filters, outlines, deformation, and grouping. Resource assets remain immutable; instances carry alterations.
 - Panel visibility/reveal state restoration and a documented relationship between state ownership and timeline ownership.
 - Audio-layer mixing rules, exclusivity, crossfades, ducking, and persistence across state boundaries.
 
@@ -226,7 +232,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 
 - State assets identify a file and type.
 - The engine preloads nearby destination assets, caches already-loaded assets, and can unload assets considered distant.
-- `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, and panel groups.
+- `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, panel groups, and visual groups.
 - Serialization stores canonical resource definitions once and state/timeline references by ID for the resource types already migrated.
 - Deserialization reconstructs registries first, then resolves state and timeline references into runtime class instances.
 
@@ -338,6 +344,7 @@ No visual editor is implemented in the evidenced prototype.
 - An enabled auto-advance requires an `autoAdvancePrompt` with the same nested prompt and transition contract. Disabled states reject a stray auto-prompt. Loading rebuilds the auto-prompt as real `Prompt`, `Transition`, and `TransitionEffect` objects and resolves its triggered audio IDs.
 - Timeline events require a numeric timestamp, supported dispatch type, and string payload ID. Camera events require a numeric trigger time and string camera-path ID.
 - Resource validation covers effects, audio cues, overlays, camera paths with focal points, panels, and panel groups with reveals. Each resource entry must match the field types consumed by reconstruction.
+- Visual-treatment validation enforces complete nested objects, finite values, positive scale, normalized origins/crops/opacity/feathering, bounded deformation, and supported mask/deformation catalogs. Visual-group panel IDs resolve against the panel registry with indexed paths.
 - Remaining state validation covers zoom regions, assets, camera behaviors, camera focal points, resource-ID arrays, and audio-layer name arrays.
 - Integrity validation resolves state-owned resource IDs, transition-triggered audio, camera events, overlay paths, panel-reveal references, and type-directed timeline payloads against their typed registries. Transition destinations must identify an existing state.
 - Duplicate definitions are rejected within each typed resource registry, and duplicate state IDs are rejected across all chapters.
@@ -509,6 +516,38 @@ The demonstrated format is structurally equivalent to:
         "accessibleDescription": "..."
       }
     ],
+    "visualGroups": [
+      {
+        "id": "...",
+        "panelIds": ["..."],
+        "treatment": {
+          "transform": {
+            "translateX": 0,
+            "translateY": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "skewX": 0,
+            "skewY": 0,
+            "originX": 0.5,
+            "originY": 0.5,
+            "flipX": false,
+            "flipY": false
+          },
+          "appearance": {
+            "opacity": 1,
+            "filter": "none",
+            "outlineWidth": 0,
+            "outlineColor": "transparent"
+          },
+          "deformation": {
+            "type": "none",
+            "amountX": 0,
+            "amountY": 0
+          }
+        }
+      }
+    ],
     "panelGroups": []
   },
   "chapters": [
@@ -612,9 +651,8 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Define shared non-destructive visual transformation and grouping contracts.
-2. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
-3. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
+1. Define reusable animation-sequence, procedural-particle, manual-motion-path, and haptic resource contracts with deterministic and accessibility behavior.
+2. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
 
 ## 21. Canonical maintenance rules
 

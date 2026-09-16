@@ -1,4 +1,9 @@
 import { Panel } from "./panel.js";
+import {
+  cloneVisualTreatment,
+  createDefaultVisualTreatment
+} from "./visualTransformation.js";
+import type { VisualTreatment } from "./visualTransformation.js";
 
 export class PanelReveal {
   panel: Panel;
@@ -8,6 +13,7 @@ export class PanelReveal {
   width: number;
   height: number;
   rotation: number;
+  treatment: VisualTreatment;
 
   constructor(
     panel: Panel,
@@ -16,7 +22,8 @@ export class PanelReveal {
     y: number = 0,
     width: number = 100,
     height: number = 100,
-    rotation: number = 0
+    rotation: number = 0,
+    treatment: VisualTreatment = createDefaultVisualTreatment()
   ) {
     this.panel = panel;
     this.delay = delay;
@@ -25,5 +32,6 @@ export class PanelReveal {
     this.width = width;
     this.height = height;
     this.rotation = rotation;
+    this.treatment = cloneVisualTreatment(treatment);
   }
 }
