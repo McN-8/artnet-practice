@@ -2,6 +2,12 @@ import { State } from "./state.js";
 import { Prompt } from "./prompt.js";
 import { AssetCache } from "./assetCache.js";
 import { AudioStack } from "./audioStack.js";
+import type { AudioCue } from "./audioCue.js";
+import { InputType } from "./inputType.js";
+import { PrototypeAudioPlayback } from "./subsystemAdapters.js";
+import type {
+  AssetLoader, AudioPlayback, InputSource
+} from "./subsystemAdapters.js";
 import { PanelGroup } from "./panelGroup.js";
 import { SystemClock } from "./clock.js";
 import type { Clock, ClockTimer } from "./clock.js";
@@ -44,7 +50,9 @@ export class Engine {
   preloadForwardSpan: number;
 
   // Asset Cache
-  assetCache: AssetCache;
+  assetCache: AssetLoader;
+  audioPlayback: AudioPlayback;
+  private inputUnsubscribe: (() => void) | undefined;
 
   activeTimers: ClockTimer[];
 
@@ -80,7 +88,9 @@ export class Engine {
     presentationMode: PresentationMode = "interactive",
     readerTimingPreferences: Readonly<ReaderTimingPreferences> =
       DEFAULT_READER_TIMING_PREFERENCES,
-    mediaAdapter: MediaAdapter = new NoopMediaAdapter()
+    mediaAdapter: MediaAdapter = new NoopMediaAdapter(),
+    assetLoader: AssetLoader = new AssetCache(),
+    audioPlayback: AudioPlayback = new PrototypeAudioPlayback()
   ) {
     this.currentState = initialState;
     this.states = states;
@@ -88,7 +98,8 @@ export class Engine {
     this.audioStack = audioStack;
     this.preloadBackwardSpan = preloadBackwardSpan;
     this.preloadForwardSpan = preloadForwardSpan;
-    this.assetCache = new AssetCache();
+    this.assetCache = assetLoader;
+    this.audioPlayback = audioPlayback;
     this.clock = clock;
     this.renderer = renderer;
     this.mediaAdapter = mediaAdapter;
@@ -100,6 +111,22 @@ export class Engine {
     this.readerTimingPreferences = { ...readerTimingPreferences };
     this.autoPromptPaused = false;
     this.lifecycleActive = false;
+  }
+
+  bindInput(source: InputSource): () => void {
+    this.unbindInput();
+    const unsubscribe = source.subscribe((input) => {
+      this.handleInput(input.type, input.targetId);
+    });
+    this.inputUnsubscribe = unsubscribe;
+    return () => {
+      if (this.inputUnsubscribe === unsubscribe) this.unbindInput();
+    };
+  }
+
+  unbindInput(): void {
+    this.inputUnsubscribe?.();
+    this.inputUnsubscribe = undefined;
   }
 
   setReaderTimingPreferences(
@@ -173,6 +200,9 @@ export class Engine {
     }
 
     this.navigationHistory.push(this.currentState.id);
+    for (const cue of this.currentState.audioCues) {
+      if (!cue.persistsAcrossStates) this.audioPlayback.stopCue(cue);
+    }
     this.currentState.exit();
     destinationState.enter();
     this.startState(destinationState);
@@ -192,7 +222,7 @@ export class Engine {
     console.log(`Preloading assets for ${state.id}`);
 
     for (const asset of state.assets) {
-      this.assetCache.loadAsset(asset.file);
+      this.assetCache.loadAsset(asset);
     }
   }
 
@@ -239,7 +269,7 @@ export class Engine {
       }
 
       for (const asset of state.assets) {
-        this.assetCache.unloadAsset(asset.file);
+        this.assetCache.unloadAsset(asset);
       }
     }
   }
@@ -259,10 +289,12 @@ export class Engine {
   applyAudioLayerRules(state: State): void {
     for (const layerId of state.audioLayersToActivate) {
       this.audioStack.activateLayer(layerId);
+      this.audioPlayback.activateLayer(layerId);
     }
 
     for (const layerId of state.audioLayersToDeactivate) {
       this.audioStack.deactivateLayer(layerId);
+      this.audioPlayback.deactivateLayer(layerId);
     }
   }
 
@@ -278,10 +310,8 @@ export class Engine {
 
   // Audio Payload Execution
 
-    runAudio(audio: { file: string; volume: number }): void {
-  console.log(
-    `Playing audio ${audio.file} at volume ${audio.volume}.`
-  );
+    runAudio(audio: AudioCue): void {
+  this.audioPlayback.playCue(audio);
  }
 
   // Overlay Effect Execution
@@ -310,10 +340,7 @@ export class Engine {
 
           case "audio":
             this.runAudio(
-                event.payload as {
-                file: string;
-                volume: number;
-                }
+                event.payload as AudioCue
                  );
             break;
 
@@ -495,6 +522,9 @@ export class Engine {
   this.currentState = state;
   this.renderer.renderState(state, this.renderContext);
   this.applyAudioLayerRules(state);
+  for (const cue of state.audioCues) {
+    this.audioPlayback.playCue(cue);
+  }
   this.playTimeline(state);
   this.scheduleAutoAdvance();
  }
@@ -523,6 +553,17 @@ export class Engine {
   inputType: string,
   targetId?: string
     ): void {
+  if (isTraditionalPresentationMode(this.presentationMode)) {
+    if (this.currentState.inputLocked) return;
+    if (inputType === InputType.TAP_RIGHT) {
+      this.advanceTraditionalPage();
+      return;
+    }
+    if (inputType === InputType.TAP_LEFT) {
+      this.returnToPreviousTraditionalPage();
+      return;
+    }
+  }
   const prompt = this.findPrompt(inputType, targetId);
 
   if (!prompt) {
@@ -592,6 +633,13 @@ export class Engine {
     );
 
     this.prepareTransition(destinationState);
+
+    for (const cue of this.currentState.audioCues) {
+      if (!cue.persistsAcrossStates) this.audioPlayback.stopCue(cue);
+    }
+    for (const cue of prompt.transition.triggeredAudioCues) {
+      this.audioPlayback.playCue(cue);
+    }
 
     this.navigationHistory.push(this.currentState.id);
 

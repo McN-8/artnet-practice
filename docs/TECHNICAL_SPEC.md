@@ -74,6 +74,10 @@ The editor and player should consume the same domain rules and serialization con
 | `TimelineEvent` | Timestamped typed dispatch | Type plus runtime payload; serialized as `payloadId` for supported resource types |
 | `Clock` | Injectable runtime scheduling boundary | `SystemClock` delegates to platform timers; `DeterministicClock` supports explicit advancement in tests |
 | `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context and accessibility preferences |
+| `AssetLoader` | Asset request boundary | Receives load/unload requests for typed state assets; `AssetCache` remains the synchronous prototype implementation |
+| `AudioPlayback` | Audio dispatch boundary | Receives cue play/stop and layer activation/deactivation; prototype implementation logs actions |
+| `InputSource` | Reader-input boundary | Subscribes typed input events and returns an unsubscribe function; `ManualInputSource` supports tests and previews |
+| `TextStorage` / `ProjectRepository` | Portable storage boundary | Reads/writes text by key; repository validates project and progress data, with an in-memory test adapter |
 | `ProgressSnapshotV1` | Portable in-memory reader checkpoint | Identifies project/story version, chapter/state, navigation history, fast-forward preference, and restoration checkpoint |
 | `Effect` | Reusable effect description | Registered by ID; includes type, trigger, and duration |
 | `AudioCue` | Reusable audio description | Registered by ID; includes file, kind, loop, volume, trigger, persistence, fades, layer group, and optional transcript required for voice cues |
@@ -236,6 +240,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 
 - State assets identify a file and type.
 - The engine preloads nearby destination assets, caches already-loaded assets, and can unload assets considered distant.
+- The engine accepts an injectable `AssetLoader`; `AssetCache` remains the default request/cache implementation. Its synchronous calls are requests, not proof that a production asset has decoded or become ready.
 - `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, panel groups, visual groups, animation sequences, motion paths, particle effects, and haptic patterns.
 - Serialization stores canonical resource definitions once and state/timeline references by ID for the resource types already migrated.
 - Deserialization reconstructs registries first, then resolves state and timeline references into runtime class instances.
@@ -291,6 +296,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - Transitions can trigger audio cues.
 - Timeline audio events can reference registered audio cues.
 - The runtime prototype applies layer directives and dispatches audio events, but demonstrated execution is diagnostic/log-level rather than verified playback.
+- The engine accepts an injectable `AudioPlayback`. State-entry cues, nonpersistent state-exit stops, transition-triggered cues, timeline cues, and layer directives pass through it; the default adapter only logs. Persistent-cue deduplication and actual mixing remain future work.
 
 ### Planned
 
@@ -312,6 +318,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - Domain mutation methods provide a shared API used by construction and loading rather than requiring direct array manipulation.
 - Serialized project data is separated from reconstructed runtime class instances.
 - The resource library is distinct from state ownership, supporting reuse and centralized edits.
+- `InputSource` subscriptions feed the engine's existing input path and can be explicitly unbound. Traditional page-turn inputs use that path without authored prompts. No device-specific input listener is installed by the domain model.
 
 No visual editor is implemented in the evidenced prototype.
 
@@ -363,7 +370,7 @@ No visual editor is implemented in the evidenced prototype.
 - Nested validation issues use indexed paths such as `$.chapters[0].states[1].timeline.events`, and independent issues are aggregated before loading stops.
 - Project validation failures throw `ProjectValidationError` with one or more path-specific issues.
 - A serialize/load round trip has been demonstrated for one story, two states, and registered resource examples.
-- Progress snapshots have their own version and validation contract, separate from project serialization. Snapshot JSON conversion is implemented in memory, but no file, browser, database, or cloud persistence adapter exists.
+- Progress snapshots have their own version and validation contract, separate from project serialization. `ProjectRepository` validates project JSON before saving and uses the existing loader on read; it also validates snapshots against story/version context on save/read. `TextStorage` is injectable, and `MemoryTextStorage` is process-local only. No file, browser, database, or cloud persistence adapter exists.
 
 This is object serialization, not yet durable application persistence.
 
@@ -484,11 +491,12 @@ The automated suite currently covers deterministic runtime timing, semantic reco
 - Typed registries provide a repeatable pattern for reusable resource categories.
 - Timeline events dispatch by type and carry resource-backed payloads.
 - Domain classes and add-methods provide extension seams without coupling authored JSON directly to runtime arrays.
+- Renderer, media, clock, asset, audio, reader-input, and text-storage interfaces are injectable. An integration test covers input → transition → destination-asset request → source-audio stop/triggered cue → destination activation; repository tests cover validation and round trips.
 
 ### Planned
 
 - Replace free-form type strings with versioned discriminated unions or an equivalent validated dispatch contract.
-- Define subsystem interfaces for renderer, audio, asset loading, persistence, input, clock/scheduler, analytics, and accessibility preferences.
+- Define remaining analytics and production accessibility-control adapters; evolve asset readiness, async failure, and cancellation contracts before connecting a production loader.
 - Extend the sequential migration registry for future schema versions and define forward-compatible extension namespaces.
 - Keep platform-specific implementations behind adapters so the domain and project format remain portable.
 - Document lifecycle and cleanup requirements for every new resource/event type.
@@ -660,7 +668,7 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Introduce remaining subsystem interfaces for audio, assets, input, and storage, then implement production adapters, including a renderer.
+1. Choose the first production player target and implement a renderer, asynchronous asset loader, audio playback, and device-input adapters against the established contracts.
 
 ## 21. Canonical maintenance rules
 

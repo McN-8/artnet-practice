@@ -1,11 +1,15 @@
-export class AssetCache {
+import type { Asset } from "./asset.js";
+import type { AssetLoader } from "./subsystemAdapters.js";
+
+export class AssetCache implements AssetLoader {
   loadedAssets: Set<string>;
 
   constructor() {
     this.loadedAssets = new Set();
   }
 
-  loadAsset(file: string): void {
+  loadAsset(asset: Asset | string): void {
+    const file = typeof asset === "string" ? asset : asset.file;
     if (this.loadedAssets.has(file)) {
       console.log(`Asset already loaded: ${file}`);
       return;
@@ -15,7 +19,8 @@ export class AssetCache {
     this.loadedAssets.add(file);
   }
 
-  unloadAsset(file: string): void {
+  unloadAsset(asset: Asset | string): void {
+    const file = typeof asset === "string" ? asset : asset.file;
     if (!this.loadedAssets.has(file)) {
       console.log(`Asset not loaded: ${file}`);
       return;
@@ -23,5 +28,9 @@ export class AssetCache {
 
     console.log(`Unloading asset: ${file}`);
     this.loadedAssets.delete(file);
+  }
+
+  hasAsset(asset: Asset): boolean {
+    return this.loadedAssets.has(asset.file);
   }
 }
