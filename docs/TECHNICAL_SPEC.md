@@ -74,7 +74,7 @@ The editor and player should consume the same domain rules and serialization con
 | `TimelineEvent` | Timestamped typed dispatch | Type plus runtime payload; serialized as `payloadId` for supported resource types |
 | `Clock` | Injectable runtime scheduling boundary | `SystemClock` delegates to platform timers; `DeterministicClock` supports explicit advancement in tests |
 | `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context and accessibility preferences |
-| `AssetLoader` | Asset request boundary | Receives load/unload requests for typed state assets; `AssetCache` remains the synchronous prototype implementation |
+| `AssetLoader` | Asset request boundary | Receives load/unload requests for typed state assets; `AssetCache` is the synchronous prototype and `BrowserAssetLoader` adds fetch-backed, observable byte readiness |
 | `AudioPlayback` | Audio dispatch boundary | Receives cue play/stop and layer activation/deactivation; prototype implementation logs actions |
 | `InputSource` | Reader-input boundary | Subscribes typed input events and returns an unsubscribe function; `ManualInputSource` supports tests and previews |
 | `TextStorage` / `ProjectRepository` | Portable storage boundary | Reads/writes text by key; repository validates project and progress data, with an in-memory test adapter |
@@ -243,6 +243,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - State assets identify a file and type.
 - The engine preloads nearby destination assets, caches already-loaded assets, and can unload assets considered distant.
 - The engine accepts an injectable `AssetLoader`; `AssetCache` remains the default request/cache implementation. Its synchronous calls are requests, not proof that a production asset has decoded or become ready.
+- `BrowserAssetLoader` implements those fire-and-forget requests with asynchronous browser `fetch`. It deduplicates by file, reports `hasAsset` only after successful response-body fetch, exposes `whenReady()` and the cached `Blob`, aborts pending work on unload/dispose, ignores stale completion after eviction, and permits a later retry after failure. The fetch function is injectable for deterministic tests. This is byte readiness, not image decoding, audio buffering, or a guarantee that the DOM renderer has consumed the cached blob; callers needing readiness must await `whenReady()` explicitly.
 - `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, panel groups, visual groups, animation sequences, motion paths, particle effects, and haptic patterns.
 - Serialization stores canonical resource definitions once and state/timeline references by ID for the resource types already migrated.
 - Deserialization reconstructs registries first, then resolves state and timeline references into runtime class instances.
@@ -252,7 +253,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - A complete asset manifest covering images, audio, fonts, captions/transcripts, thumbnails, and future media types.
 - Content hashing, integrity verification, MIME/format validation, dimensions/duration metadata, dependency discovery, and duplicate detection.
 - Platform-neutral logical asset URIs rather than relying on bare filenames.
-- Loading states, retry/fallback behavior, memory budgets, priority queues, cancellation, and telemetry.
+- Image/audio decode integration, a renderer-facing asset URL/handle bridge, bounded memory and eviction policy, priority queues, fallback behavior, and telemetry. The current browser loader only provides fetch, cancellation, and retry after failure.
 - Packaging and publication rules that guarantee every referenced asset is present and permitted for distribution.
 - Schema validation before object construction and actionable errors for missing or incompatible resources.
 
@@ -498,7 +499,7 @@ The automated suite currently covers deterministic runtime timing, semantic reco
 ### Planned
 
 - Replace free-form type strings with versioned discriminated unions or an equivalent validated dispatch contract.
-- Define remaining analytics and production accessibility-control adapters; evolve asset readiness, async failure, and cancellation contracts before connecting a production loader.
+- Define remaining analytics and production accessibility-control adapters; integrate the fetch-backed browser loader with renderer/audio asset handles and explicit transition-readiness/failure policy.
 - Extend the sequential migration registry for future schema versions and define forward-compatible extension namespaces.
 - Keep platform-specific implementations behind adapters so the domain and project format remain portable.
 - Document lifecycle and cleanup requirements for every new resource/event type.
@@ -670,7 +671,7 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Continue the browser player target: complete renderer visual/accessibility coverage and implement an asynchronous asset loader, audio playback, and device-input adapters against the established contracts.
+1. Continue the browser player target: connect fetched assets to renderer/audio playback with explicit readiness and fallback policy, complete renderer visual/accessibility coverage, and implement audio playback and device-input adapters against the established contracts.
 
 ## 21. Canonical maintenance rules
 
