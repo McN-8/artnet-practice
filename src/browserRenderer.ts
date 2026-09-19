@@ -1,3 +1,4 @@
+import { Asset } from "./asset.js";
 import type { CameraPath } from "./cameraPath.js";
 import type { Effect } from "./effect.js";
 import type { OverlayAsset } from "./overlayAsset.js";
@@ -7,18 +8,32 @@ import type { State } from "./state.js";
 import type { RenderContext } from "./visualContract.js";
 import { ARTNET_COORDINATE_SYSTEM } from "./visualContract.js";
 
+interface BrowserImageAssets {
+  whenReady(asset: Asset): Promise<Blob>;
+}
+
+interface ObjectUrlFactory {
+  createObjectURL(blob: Blob): string;
+  revokeObjectURL(url: string): void;
+}
+
 /** First browser adapter: state artwork, dialogue, and panel reveals only. */
 export class BrowserRenderer implements Renderer {
   private readonly stage: HTMLElement;
   private readonly backgroundLayer: HTMLElement;
   private readonly panelLayer: HTMLElement;
   private readonly dialogueLayer: HTMLElement;
+  private readonly sceneObjectUrls = new Map<string, string>();
+  private sceneGeneration = 0;
+  private disposed = false;
   private resizeObserver: ResizeObserver | undefined;
   private resizeListener: (() => void) | undefined;
 
   constructor(
     private readonly root: HTMLElement,
-    observeResize: boolean = true
+    observeResize: boolean = true,
+    private readonly imageAssets?: BrowserImageAssets,
+    private readonly objectUrls: ObjectUrlFactory = URL
   ) {
     const document = root.ownerDocument;
     this.stage = document.createElement("div");
@@ -83,9 +98,11 @@ export class BrowserRenderer implements Renderer {
   }
 
   renderState(state: State, _context: RenderContext): void {
+    if (this.disposed) return;
+    this.releaseSceneImages();
     const document = this.root.ownerDocument;
     const background = document.createElement("img");
-    background.setAttribute("src", state.image);
+    this.setImageSource(background, state.image);
     background.setAttribute("alt", "");
     background.style.width = "100%";
     background.style.height = "100%";
@@ -108,6 +125,7 @@ export class BrowserRenderer implements Renderer {
   }
 
   revealPanel(reveal: PanelReveal, _context: RenderContext): void {
+    if (this.disposed) return;
     const document = this.root.ownerDocument;
     const placement = document.createElement("div");
     const transform = reveal.treatment.transform;
@@ -131,7 +149,7 @@ export class BrowserRenderer implements Renderer {
 
     if (reveal.panel.asset) {
       const image = document.createElement("img");
-      image.setAttribute("src", reveal.panel.asset);
+      this.setImageSource(image, reveal.panel.asset);
       image.setAttribute("alt", reveal.panel.accessibleDescription ?? "");
       image.style.width = "100%";
       image.style.height = "100%";
@@ -151,11 +169,57 @@ export class BrowserRenderer implements Renderer {
   runEffect(_effect: Effect, _context: RenderContext): void {}
   displayOverlay(_overlay: OverlayAsset, _context: RenderContext): void {}
 
+  private setImageSource(image: HTMLElement, file: string): void {
+    const assets = this.imageAssets;
+    if (!assets) {
+      image.setAttribute("src", file);
+      return;
+    }
+
+    const existingUrl = this.sceneObjectUrls.get(file);
+    if (existingUrl) {
+      image.setAttribute("src", existingUrl);
+      image.setAttribute("data-asset-status", "fetched");
+      return;
+    }
+
+    const generation = this.sceneGeneration;
+    image.setAttribute("data-asset-status", "loading");
+    void Promise.resolve()
+      .then(() => assets.whenReady(new Asset(file, "image")))
+      .then((blob) => {
+        if (this.disposed || generation !== this.sceneGeneration) return;
+        let url = this.sceneObjectUrls.get(file);
+        if (!url) {
+          url = this.objectUrls.createObjectURL(blob);
+          this.sceneObjectUrls.set(file, url);
+        }
+        image.setAttribute("src", url);
+        image.setAttribute("data-asset-status", "fetched");
+      })
+      .catch(() => {
+        if (this.disposed || generation !== this.sceneGeneration) return;
+        image.setAttribute("data-asset-status", "failed");
+      });
+  }
+
+  private releaseSceneImages(): void {
+    this.sceneGeneration++;
+    for (const url of this.sceneObjectUrls.values()) {
+      this.objectUrls.revokeObjectURL(url);
+    }
+    this.sceneObjectUrls.clear();
+  }
+
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.releaseSceneImages();
     this.resizeObserver?.disconnect();
     if (this.resizeListener) {
       window.removeEventListener("resize", this.resizeListener);
       this.resizeListener = undefined;
     }
+    this.root.replaceChildren();
   }
 }
