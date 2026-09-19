@@ -38,6 +38,14 @@ class FakeElement {
     this.attributes.set(name, value);
   }
 
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+  }
+
+  decode(): Promise<void> {
+    return Promise.resolve();
+  }
+
   append(child: FakeElement): void {
     this.children.push(child);
   }
@@ -65,7 +73,7 @@ function mount(): {root: FakeElement; renderer: BrowserRenderer} {
 }
 
 async function settleRendererPromises(): Promise<void> {
-  for (let step = 0; step < 5; step++) await Promise.resolve();
+  for (let step = 0; step < 20; step++) await Promise.resolve();
 }
 
 test("browser renderer uniformly contains the logical canvas", () => {
@@ -195,7 +203,7 @@ test("renderer uses fetched blobs, shares a scene URL, and revokes it", async ()
   await loader.whenReady(new Asset("shared.png", "image"));
   await settleRendererPromises();
   assert.equal(background.attributes.get("src"), "blob:test-1");
-  assert.equal(background.attributes.get("data-asset-status"), "fetched");
+  assert.equal(background.attributes.get("data-asset-status"), "decoded");
   renderer.revealPanel(new PanelReveal(
     new Panel("p", "shared.png", "A shared image")
   ), DEFAULT_RENDER_CONTEXT);
@@ -273,6 +281,85 @@ test("failed image fetch leaves an accessible but unpainted image", async () => 
   assert.equal(background.attributes.get("src"), undefined);
   assert.equal(background.attributes.get("alt"), "");
   assert.equal(background.attributes.get("data-asset-status"), "failed");
+  renderer.dispose();
+  loader.dispose();
+});
+
+test("image status waits for decode and decode failure clears the source", async () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const loader = new BrowserAssetLoader(async () =>
+    new Response(new Blob(["image bytes"]))
+  );
+  let resolveDecode!: () => void;
+  const renderer = new BrowserRenderer(
+    root as unknown as HTMLElement, false, loader,
+    {createObjectURL: () => "blob:test", revokeObjectURL: () => {}},
+    () => new Promise<void>((resolve) => { resolveDecode = resolve; })
+  );
+  renderer.renderState(new State("one", "one.png", "Scene"),
+    DEFAULT_RENDER_CONTEXT);
+  await loader.whenReady(new Asset("one.png", "image"));
+  await settleRendererPromises();
+  const background = root.children[0]!.children[0]!.children[0]!;
+  assert.equal(background.attributes.get("data-asset-status"), "fetched");
+  resolveDecode();
+  await settleRendererPromises();
+  assert.equal(background.attributes.get("data-asset-status"), "decoded");
+  renderer.dispose();
+  loader.dispose();
+
+  const failedRoot = document.createElement("div");
+  const failedLoader = new BrowserAssetLoader(async () =>
+    new Response(new Blob(["bad image bytes"]))
+  );
+  const failedRenderer = new BrowserRenderer(
+    failedRoot as unknown as HTMLElement, false, failedLoader,
+    {createObjectURL: () => "blob:failed", revokeObjectURL: () => {}},
+    async () => { throw new Error("Unsupported image"); }
+  );
+  failedRenderer.renderState(new State("two", "two.png", "Readable"),
+    DEFAULT_RENDER_CONTEXT);
+  await failedLoader.whenReady(new Asset("two.png", "image"));
+  await settleRendererPromises();
+  const failedImage = failedRoot.children[0]!.children[0]!.children[0]!;
+  assert.equal(failedImage.attributes.get("src"), undefined);
+  assert.equal(failedImage.attributes.get("data-asset-status"), "failed");
+  assert.equal(failedRoot.children[0]!.children[2]!.children[0]!.textContent,
+    "Readable");
+  failedRenderer.dispose();
+  failedLoader.dispose();
+});
+
+test("late decode cannot change a replaced scene", async () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const loader = new BrowserAssetLoader(async (file) =>
+    new Response(new Blob([file]))
+  );
+  let rejectOld!: (reason: Error) => void;
+  let decodeCalls = 0;
+  const renderer = new BrowserRenderer(
+    root as unknown as HTMLElement, false, loader,
+    {createObjectURL: (blob) => `blob:${blob.size}`,
+      revokeObjectURL: () => {}},
+    () => ++decodeCalls === 1
+      ? new Promise<void>((_resolve, reject) => { rejectOld = reject; })
+      : Promise.resolve()
+  );
+  renderer.renderState(new State("old", "old.png", "Old"),
+    DEFAULT_RENDER_CONTEXT);
+  await loader.whenReady(new Asset("old.png", "image"));
+  await settleRendererPromises();
+  const oldImage = root.children[0]!.children[0]!.children[0]!;
+  renderer.renderState(new State("new", "new.png", "New"),
+    DEFAULT_RENDER_CONTEXT);
+  rejectOld(new Error("late decode failure"));
+  await loader.whenReady(new Asset("new.png", "image"));
+  await settleRendererPromises();
+  assert.equal(oldImage.attributes.get("data-asset-status"), "fetched");
+  assert.equal(root.children[0]!.children[0]!.children[0]!
+    .attributes.get("data-asset-status"), "decoded");
   renderer.dispose();
   loader.dispose();
 });
