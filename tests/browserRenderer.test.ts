@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AudioStack } from "../src/audioStack.js";
+import { Asset } from "../src/asset.js";
+import { BrowserAssetLoader } from "../src/browserAssetLoader.js";
 import { BrowserRenderer } from "../src/browserRenderer.js";
 import { DeterministicClock } from "../src/clock.js";
 import { Engine } from "../src/engine.js";
@@ -60,6 +62,10 @@ function mount(): {root: FakeElement; renderer: BrowserRenderer} {
   const root = document.createElement("div");
   const renderer = new BrowserRenderer(root as unknown as HTMLElement, false);
   return {root, renderer};
+}
+
+async function settleRendererPromises(): Promise<void> {
+  for (let step = 0; step < 5; step++) await Promise.resolve();
 }
 
 test("browser renderer uniformly contains the logical canvas", () => {
@@ -154,4 +160,119 @@ test("reduced-motion context does not add browser animation", () => {
   assert.equal(panel.style.animation, undefined);
   assert.equal(stage.style.transition, undefined);
   renderer.dispose();
+});
+
+test("renderer uses fetched blobs, shares a scene URL, and revokes it", async () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const requests: string[] = [];
+  const created: string[] = [];
+  const revoked: string[] = [];
+  const loader = new BrowserAssetLoader(async (file) => {
+    requests.push(file);
+    return new Response(new Blob([file]));
+  });
+  const renderer = new BrowserRenderer(
+    root as unknown as HTMLElement,
+    false,
+    loader,
+    {
+      createObjectURL: () => {
+        const url = `blob:test-${created.length + 1}`;
+        created.push(url);
+        return url;
+      },
+      revokeObjectURL: (url) => { revoked.push(url); }
+    }
+  );
+  renderer.renderState(new State("one", "shared.png", "One"),
+    DEFAULT_RENDER_CONTEXT);
+  const stage = root.children[0]!;
+  const background = stage.children[0]!.children[0]!;
+  assert.equal(background.attributes.get("src"), undefined);
+  assert.equal(background.attributes.get("data-asset-status"), "loading");
+
+  await loader.whenReady(new Asset("shared.png", "image"));
+  await settleRendererPromises();
+  assert.equal(background.attributes.get("src"), "blob:test-1");
+  assert.equal(background.attributes.get("data-asset-status"), "fetched");
+  renderer.revealPanel(new PanelReveal(
+    new Panel("p", "shared.png", "A shared image")
+  ), DEFAULT_RENDER_CONTEXT);
+  await settleRendererPromises();
+  const panelImage = stage.children[1]!.children[0]!.children[0]!;
+  assert.equal(panelImage.attributes.get("src"), "blob:test-1");
+  assert.deepEqual(requests, ["shared.png"]);
+  assert.deepEqual(created, ["blob:test-1"]);
+
+  renderer.renderState(new State("two", "second.png", "Two"),
+    DEFAULT_RENDER_CONTEXT);
+  assert.deepEqual(revoked, ["blob:test-1"]);
+  await loader.whenReady(new Asset("second.png", "image"));
+  await settleRendererPromises();
+  assert.equal(stage.children[0]!.children[0]!.attributes.get("src"),
+    "blob:test-2");
+  renderer.dispose();
+  assert.deepEqual(revoked, ["blob:test-1", "blob:test-2"]);
+  assert.equal(root.children.length, 0);
+  loader.dispose();
+});
+
+test("stale fetch completion cannot repaint a later state", async () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  let finishOld!: (response: Response) => void;
+  const created: string[] = [];
+  const loader = new BrowserAssetLoader((file) =>
+    file === "old.png"
+      ? new Promise<Response>((resolve) => { finishOld = resolve; })
+      : Promise.resolve(new Response(new Blob(["new"])))
+  );
+  const renderer = new BrowserRenderer(root as unknown as HTMLElement,
+    false, loader, {
+      createObjectURL: () => {
+        const url = `blob:test-${created.length + 1}`;
+        created.push(url);
+        return url;
+      },
+      revokeObjectURL: () => {}
+    });
+  renderer.renderState(new State("old", "old.png", "Old"),
+    DEFAULT_RENDER_CONTEXT);
+  await Promise.resolve();
+  await Promise.resolve();
+  renderer.renderState(new State("new", "new.png", "New"),
+    DEFAULT_RENDER_CONTEXT);
+  finishOld(new Response(new Blob(["old"])));
+  await loader.whenReady(new Asset("new.png", "image"));
+  await settleRendererPromises();
+  assert.equal(root.children[0]!.children[0]!.children[0]!
+    .attributes.get("src"), "blob:test-1");
+  assert.deepEqual(created, ["blob:test-1"]);
+  renderer.dispose();
+  loader.dispose();
+});
+
+test("failed image fetch leaves an accessible but unpainted image", async () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const loader = new BrowserAssetLoader(async () =>
+    new Response("missing", {status: 404})
+  );
+  const renderer = new BrowserRenderer(
+    root as unknown as HTMLElement, false, loader
+  );
+  renderer.renderState(new State("one", "missing.png", "Scene"),
+    DEFAULT_RENDER_CONTEXT);
+  await assert.rejects(
+    loader.whenReady(new Asset("missing.png", "image")),
+    /HTTP 404/
+  );
+  await Promise.resolve();
+  const background = root.children[0]!.children[0]!.children[0]!;
+  assert.equal(background.attributes.get("src"), undefined);
+  assert.equal(background.attributes.get("alt"), "");
+  assert.equal(background.attributes.get("data-asset-status"), "failed");
+  renderer.dispose();
+  loader.dispose();
 });
