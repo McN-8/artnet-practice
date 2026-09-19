@@ -17,6 +17,8 @@ interface ObjectUrlFactory {
   revokeObjectURL(url: string): void;
 }
 
+type DecodeImage = (image: HTMLImageElement) => Promise<void>;
+
 /** First browser adapter: state artwork, dialogue, and panel reveals only. */
 export class BrowserRenderer implements Renderer {
   private readonly stage: HTMLElement;
@@ -33,7 +35,8 @@ export class BrowserRenderer implements Renderer {
     private readonly root: HTMLElement,
     observeResize: boolean = true,
     private readonly imageAssets?: BrowserImageAssets,
-    private readonly objectUrls: ObjectUrlFactory = URL
+    private readonly objectUrls: ObjectUrlFactory = URL,
+    private readonly decodeImage: DecodeImage = (image) => image.decode()
   ) {
     const document = root.ownerDocument;
     this.stage = document.createElement("div");
@@ -178,8 +181,7 @@ export class BrowserRenderer implements Renderer {
 
     const existingUrl = this.sceneObjectUrls.get(file);
     if (existingUrl) {
-      image.setAttribute("src", existingUrl);
-      image.setAttribute("data-asset-status", "fetched");
+      this.decodeFetchedImage(image, existingUrl, this.sceneGeneration);
       return;
     }
 
@@ -194,11 +196,28 @@ export class BrowserRenderer implements Renderer {
           url = this.objectUrls.createObjectURL(blob);
           this.sceneObjectUrls.set(file, url);
         }
-        image.setAttribute("src", url);
-        image.setAttribute("data-asset-status", "fetched");
+        this.decodeFetchedImage(image, url, generation);
       })
       .catch(() => {
         if (this.disposed || generation !== this.sceneGeneration) return;
+        image.setAttribute("data-asset-status", "failed");
+      });
+  }
+
+  private decodeFetchedImage(
+    image: HTMLElement, url: string, generation: number
+  ): void {
+    image.setAttribute("src", url);
+    image.setAttribute("data-asset-status", "fetched");
+    void Promise.resolve()
+      .then(() => this.decodeImage(image as HTMLImageElement))
+      .then(() => {
+        if (this.disposed || generation !== this.sceneGeneration) return;
+        image.setAttribute("data-asset-status", "decoded");
+      })
+      .catch(() => {
+        if (this.disposed || generation !== this.sceneGeneration) return;
+        image.removeAttribute("src");
         image.setAttribute("data-asset-status", "failed");
       });
   }
