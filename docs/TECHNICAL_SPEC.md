@@ -75,7 +75,7 @@ The editor and player should consume the same domain rules and serialization con
 | `Clock` | Injectable runtime scheduling boundary | `SystemClock` delegates to platform timers; `DeterministicClock` supports explicit advancement in tests |
 | `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context and accessibility preferences |
 | `AssetLoader` | Asset request boundary | Receives load/unload requests for typed state assets; `AssetCache` is the synchronous prototype and `BrowserAssetLoader` adds fetch-backed, observable byte readiness |
-| `AudioPlayback` | Audio dispatch boundary | Receives cue play/stop and layer activation/deactivation; prototype implementation logs actions |
+| `AudioPlayback` | Audio dispatch boundary | Receives cue play/stop and layer activation/deactivation; prototype implementation logs actions, and `BrowserAudioPlayback` plays fetched bytes through browser audio elements |
 | `InputSource` | Reader-input boundary | Subscribes typed input events and returns an unsubscribe function; `ManualInputSource` supports tests and previews |
 | `TextStorage` / `ProjectRepository` | Portable storage boundary | Reads/writes text by key; repository validates project and progress data, with an in-memory test adapter |
 | `ProgressSnapshotV1` | Portable in-memory reader checkpoint | Identifies project/story version, chapter/state, navigation history, fast-forward preference, and restoration checkpoint |
@@ -244,7 +244,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - State assets identify a file and type.
 - The engine preloads nearby destination assets, caches already-loaded assets, and can unload assets considered distant.
 - The engine accepts an injectable `AssetLoader`; `AssetCache` remains the default request/cache implementation. Its synchronous calls are requests, not proof that a production asset has decoded or become ready.
-- `BrowserAssetLoader` implements those fire-and-forget requests with asynchronous browser `fetch`. It deduplicates by file, reports `hasAsset` only after successful response-body fetch, exposes `whenReady()` and the cached `Blob`, aborts pending work on unload/dispose, ignores stale completion after eviction, and permits a later retry after failure. The fetch function is injectable for deterministic tests. This is byte readiness, not image decoding or audio buffering. The browser renderer now consumes image blobs when the same loader is passed to both it and the engine; no playback-readiness gate exists yet.
+- `BrowserAssetLoader` implements those fire-and-forget requests with asynchronous browser `fetch`. It deduplicates by file, reports `hasAsset` only after successful response-body fetch, exposes `whenReady()` and the cached `Blob`, aborts pending work on unload/dispose, ignores stale completion after eviction, and permits a later retry after failure. The fetch function is injectable for deterministic tests. This is byte readiness, not image decoding or audio buffering. The browser renderer and audio adapter consume blobs when the same loader is passed to them and the engine; no whole-state playback-readiness gate exists yet.
 - `ArtNetResources` provides project-scoped typed registries for effects, audio, overlays, camera paths, panels, panel groups, visual groups, animation sequences, motion paths, particle effects, and haptic patterns.
 - Serialization stores canonical resource definitions once and state/timeline references by ID for the resource types already migrated.
 - Deserialization reconstructs registries first, then resolves state and timeline references into runtime class instances.
@@ -254,7 +254,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - A complete asset manifest covering images, audio, fonts, captions/transcripts, thumbnails, and future media types.
 - Content hashing, integrity verification, MIME/format validation, dimensions/duration metadata, dependency discovery, and duplicate detection.
 - Platform-neutral logical asset URIs rather than relying on bare filenames.
-- Audio decode and image/audio load-error handling beyond the current unpainted-image fallback, a renderer/audio-ready transition policy, bounded memory and eviction policy, priority queues, and telemetry. The browser image bridge has per-image decode status and scene-scoped URL cleanup but does not enforce the version-1 memory budget.
+- Explicit audio decode readiness and image/audio load-error handling beyond the current fallbacks, a renderer/audio-ready transition policy, bounded memory and eviction policy, priority queues, and telemetry. The browser image bridge has per-image decode status and scene-scoped URL cleanup but does not enforce the version-1 memory budget.
 - Packaging and publication rules that guarantee every referenced asset is present and permitted for distribution.
 - Schema validation before object construction and actionable errors for missing or incompatible resources.
 
@@ -301,10 +301,11 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - Timeline audio events can reference registered audio cues.
 - The runtime prototype applies layer directives and dispatches audio events, but demonstrated execution is diagnostic/log-level rather than verified playback.
 - The engine accepts an injectable `AudioPlayback`. State-entry cues, nonpersistent state-exit stops, transition-triggered cues, timeline cues, and layer directives pass through it; the default adapter only logs. Persistent-cue deduplication and actual mixing remain future work.
+- `BrowserAudioPlayback` is an optional browser implementation of that boundary. It waits for fetched audio bytes, assigns a temporary object URL to a browser audio element, applies cue loop/volume, and calls `play()`. A repeated active cue ID is not restarted. Stopping or disposing pauses playback, clears the source, revokes its URL, and invalidates late loads. The adapter exposes `loading`, `playing`, `blocked`, or `failed` per cue; rejected browser play promises are `blocked` and may be retried by a later `playCue` call (no automatic retry or user-gesture unlock). Layer directives are tracked but do not yet mix or gate audio. Audio element construction and URL handling are injectable for tests. This does not guarantee decoded/buffered readiness or synchronize audio with the visual timeline.
 
 ### Planned
 
-- Real audio playback, decoding, mixing, fade/crossfade, loop boundaries, interruption, and cleanup.
+- Audio decode readiness, mixing, fade/crossfade, loop boundaries, interruption, and broader cleanup beyond explicit stop/dispose.
 - Adaptive audio driven by state entry/exit, transitions, narrative variables, and layer rules.
 - Persistent ambience continuity across states without duplicate playback.
 - User controls for master, music, ambience, effects, and narration where applicable.
@@ -672,7 +673,7 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Continue the browser player target: define a whole-state image/audio readiness policy, connect fetched audio to playback, complete renderer visual/accessibility coverage, and implement device-input adapters against the established contracts.
+1. Continue the browser player target: define a whole-state image/audio readiness policy, audio unlock and mixing policy, complete renderer visual/accessibility coverage, and implement device-input adapters against the established contracts.
 
 ## 21. Canonical maintenance rules
 
