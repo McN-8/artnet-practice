@@ -81,7 +81,7 @@ ArtNet is not:
 
 - A replacement for books, comics, animation, games, or film.
 - A game engine disguised as a comic reader.
-- A video editor or frame-by-frame animation suite.
+- A general-purpose video editor; optional native frame sequences serve authored story moments.
 - A social network whose engagement mechanics overpower creation and reading.
 - A rigid template system that defines the correct number, shape, or arrangement of panels.
 - A collection of audiovisual gimmicks added for novelty.
@@ -125,6 +125,18 @@ A feature is valuable when it helps a creator communicate a moment that would ot
 ### 7.8 Creative intent outranks technical neatness
 
 The architecture should be rigorous, but it must not mistake unusual creative choices for errors. Silence, stillness, empty space, repetition, delayed progression, and unconventional layouts are all legitimate tools.
+
+### 7.9 Protect creator flow
+
+Controls should appear near the work and at the moment they are useful. Direct manipulation, reversible actions, useful defaults, and immediate preview should let creators stay focused on the scene. Handedness and input-device preferences may adjust control placement and must remain editable. Alignment help should be easy to ignore or loosen when a deliberate irregular placement serves the story.
+
+### 7.10 Make creation satisfying without engineering compulsion
+
+Super Mario Maker is an inspiration for playful, tactile editing: responsive drag and drop, stacking, restrained sounds, squish, and small surprises. Feedback should confirm a real action or milestone. Achievements should reward craft, learning, reading, community contribution, and curiosity; they should not pressure people to maintain streaks or extend sessions. The story takes priority over platform celebrations.
+
+### 7.11 Reveal recognition in layers
+
+An achievement may first appear as a small distinct checked icon in a screen corner, expand to a short card only when selected, and open its details page on a further action. Placement, duration, and visual identity need testing with the actual interface. The notification must remain unobtrusive during reading and accessible without motion or sound.
 
 ## 8. Guiding Principles
 
