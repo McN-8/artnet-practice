@@ -1,5 +1,13 @@
 import { InputType } from "./inputType.js";
+import type { PresentationMode } from "./presentationMode.js";
+import { isTraditionalPresentationMode } from "./presentationMode.js";
+import type { State } from "./state.js";
 import type { InputSource, ReaderInput } from "./subsystemAdapters.js";
+
+export interface PagePosition {
+  index: number;
+  count: number;
+}
 
 const CONTROL_LABELS: ReadonlyArray<readonly [InputType, string]> = [
   [InputType.TAP_LEFT, "Previous"],
@@ -16,9 +24,11 @@ export class BrowserReaderControls implements InputSource {
   private readonly listeners = new Set<(input: ReaderInput) => void>();
   private readonly container: HTMLElement;
   private readonly buttons: Array<{
+    type: InputType;
     element: HTMLButtonElement;
     handler: () => void;
   }> = [];
+  private available = new Set<InputType>(Object.values(InputType));
   private disposed = false;
 
   constructor(
@@ -38,7 +48,7 @@ export class BrowserReaderControls implements InputSource {
       const handler = () => this.emit(type);
       button.addEventListener("click", handler);
       this.container.append(button);
-      this.buttons.push({element: button, handler});
+      this.buttons.push({type, element: button, handler});
     }
     root.append(this.container);
   }
@@ -47,6 +57,35 @@ export class BrowserReaderControls implements InputSource {
     if (this.disposed) return () => {};
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
+  }
+
+  /** Refresh after navigation or input-lock changes. The host owns that timing. */
+  updateForState(
+    state: State,
+    mode: PresentationMode,
+    pagePosition?: PagePosition
+  ): void {
+    const available = new Set<InputType>();
+    if (!state.inputLocked) {
+      const targetId = this.targetId();
+      for (const prompt of state.prompts) {
+        if (prompt.targetId === undefined || prompt.targetId === targetId) {
+          available.add(prompt.inputType);
+        }
+      }
+      if (isTraditionalPresentationMode(mode) && pagePosition) {
+        if (pagePosition.index > 0) available.add(InputType.TAP_LEFT);
+        if (pagePosition.index < pagePosition.count - 1) {
+          available.add(InputType.TAP_RIGHT);
+        }
+      }
+    }
+    this.available = available;
+    for (const {type, element} of this.buttons) {
+      const enabled = available.has(type);
+      element.hidden = !enabled;
+      element.disabled = !enabled;
+    }
   }
 
   dispose(): void {
@@ -60,7 +99,7 @@ export class BrowserReaderControls implements InputSource {
   }
 
   private emit(type: InputType): void {
-    if (this.listeners.size === 0) return;
+    if (!this.available.has(type) || this.listeners.size === 0) return;
     const targetId = this.targetId();
     const input: ReaderInput = targetId === undefined
       ? {type} : {type, targetId};
