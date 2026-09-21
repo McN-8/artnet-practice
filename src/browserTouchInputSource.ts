@@ -8,11 +8,15 @@ interface TouchStart {
   time: number;
 }
 
-/** Minimal reader touch gestures: side taps and vertical swipes. */
+interface TouchPoint { x: number; y: number; }
+
+/** Minimal reader touch gestures: side taps, vertical swipes, and pinch. */
 export class BrowserTouchInputSource implements InputSource {
   private readonly listeners = new Set<(input: ReaderInput) => void>();
-  private readonly activePointers = new Set<number>();
+  private readonly activePointers = new Map<number, TouchPoint>();
   private start: TouchStart | undefined;
+  private pinchStartDistance: number | undefined;
+  private pinchEmitted = false;
   private disposed = false;
 
   constructor(
@@ -20,6 +24,7 @@ export class BrowserTouchInputSource implements InputSource {
     private readonly targetId: () => string | undefined = () => undefined
   ) {
     root.addEventListener("pointerdown", this.onDown);
+    root.addEventListener("pointermove", this.onMove);
     root.addEventListener("pointerup", this.onUp);
     root.addEventListener("pointercancel", this.onCancel);
   }
@@ -34,8 +39,11 @@ export class BrowserTouchInputSource implements InputSource {
     if (this.disposed) return;
     this.disposed = true;
     this.start = undefined;
+    this.pinchStartDistance = undefined;
+    this.pinchEmitted = false;
     this.activePointers.clear();
     this.root.removeEventListener("pointerdown", this.onDown);
+    this.root.removeEventListener("pointermove", this.onMove);
     this.root.removeEventListener("pointerup", this.onUp);
     this.root.removeEventListener("pointercancel", this.onCancel);
     this.listeners.clear();
@@ -43,17 +51,41 @@ export class BrowserTouchInputSource implements InputSource {
 
   private readonly onDown = (event: PointerEvent): void => {
     if (event.pointerType !== "touch" || this.listeners.size === 0) return;
-    this.activePointers.add(event.pointerId);
-    if (this.activePointers.size !== 1) {
-      // A second finger is not a tap or swipe. Pinch is a later adapter slice.
+    if (this.isInteractive(event.target)) return;
+    this.activePointers.set(event.pointerId, {
+      x: event.clientX, y: event.clientY
+    });
+    if (this.activePointers.size === 2) {
       this.start = undefined;
+      this.pinchStartDistance = this.pointerDistance();
+      this.pinchEmitted = false;
       return;
     }
-    if (this.isInteractive(event.target)) return;
+    if (this.activePointers.size !== 1) {
+      this.resetGesture();
+      return;
+    }
     this.start = {
       pointerId: event.pointerId, x: event.clientX,
       y: event.clientY, time: event.timeStamp
     };
+  };
+
+  private readonly onMove = (event: PointerEvent): void => {
+    if (event.pointerType !== "touch" ||
+      !this.activePointers.has(event.pointerId)) return;
+    this.activePointers.set(event.pointerId, {
+      x: event.clientX, y: event.clientY
+    });
+    if (this.activePointers.size !== 2 || this.pinchEmitted ||
+      this.pinchStartDistance === undefined ||
+      this.pinchStartDistance === 0) return;
+    const distance = this.pointerDistance();
+    if (distance === undefined) return;
+    const change = Math.abs(distance - this.pinchStartDistance);
+    if (change < 24 || change / this.pinchStartDistance < 0.2) return;
+    this.pinchEmitted = true;
+    this.emit(InputType.PINCH_ZOOM);
   };
 
   private readonly onUp = (event: PointerEvent): void => {
@@ -62,6 +94,7 @@ export class BrowserTouchInputSource implements InputSource {
     this.activePointers.delete(event.pointerId);
     const start = this.start;
     if (!singlePointer || !start || event.pointerId !== start.pointerId) {
+      if (this.activePointers.size === 0) this.resetGesture();
       return;
     }
     this.start = undefined;
@@ -82,16 +115,34 @@ export class BrowserTouchInputSource implements InputSource {
       return;
     }
 
-    const targetId = this.targetId();
-    const input: ReaderInput = targetId === undefined
-      ? {type} : {type, targetId};
-    for (const listener of [...this.listeners]) listener(input);
+    this.emit(type);
   };
 
   private readonly onCancel = (event: PointerEvent): void => {
     this.activePointers.delete(event.pointerId);
     if (this.start?.pointerId === event.pointerId) this.start = undefined;
+    if (this.activePointers.size < 2) this.pinchStartDistance = undefined;
   };
+
+  private pointerDistance(): number | undefined {
+    const [first, second] = [...this.activePointers.values()];
+    if (!first || !second) return undefined;
+    return Math.hypot(second.x - first.x, second.y - first.y);
+  }
+
+  private emit(type: InputType): void {
+    const targetId = this.targetId();
+    const input: ReaderInput = targetId === undefined
+      ? {type} : {type, targetId};
+    for (const listener of [...this.listeners]) listener(input);
+  }
+
+  private resetGesture(): void {
+    this.start = undefined;
+    this.pinchStartDistance = undefined;
+    this.pinchEmitted = false;
+    if (this.activePointers.size > 2) this.activePointers.clear();
+  }
 
   private isInteractive(target: EventTarget | null): boolean {
     if (!target || typeof (target as Element).closest !== "function") {

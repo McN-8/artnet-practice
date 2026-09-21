@@ -87,3 +87,39 @@ test("second finger cancels a gesture and unsubscribe stops delivery", () => {
   assert.deepEqual(received, []);
   source.dispose();
 });
+
+test("two-finger distance change emits one targeted pinch", () => {
+  const root = new FakeRoot();
+  const source = new BrowserTouchInputSource(
+    root as unknown as HTMLElement, () => "zoom-region"
+  );
+  const received: ReaderInput[] = [];
+  source.subscribe((input) => received.push(input));
+  root.emit("pointerdown", 200, 100, 0, {pointerId: 1});
+  root.emit("pointerdown", 300, 100, 5, {pointerId: 2});
+  root.emit("pointermove", 315, 100, 10, {pointerId: 2});
+  assert.deepEqual(received, []);
+  root.emit("pointermove", 330, 100, 15, {pointerId: 2});
+  root.emit("pointermove", 360, 100, 20, {pointerId: 2});
+  assert.deepEqual(received, [{
+    type: InputType.PINCH_ZOOM, targetId: "zoom-region"
+  }]);
+  root.emit("pointerup", 200, 100, 25, {pointerId: 1});
+  root.emit("pointerup", 360, 100, 30, {pointerId: 2});
+  assert.equal(received.length, 1);
+  source.dispose();
+});
+
+test("small two-finger changes and a third finger do not emit", () => {
+  const root = new FakeRoot();
+  const source = new BrowserTouchInputSource(root as unknown as HTMLElement);
+  const received: ReaderInput[] = [];
+  source.subscribe((input) => received.push(input));
+  root.emit("pointerdown", 200, 100, 0, {pointerId: 1});
+  root.emit("pointerdown", 300, 100, 5, {pointerId: 2});
+  root.emit("pointermove", 310, 100, 10, {pointerId: 2});
+  root.emit("pointerdown", 250, 150, 15, {pointerId: 3});
+  root.emit("pointermove", 400, 100, 20, {pointerId: 2});
+  assert.deepEqual(received, []);
+  source.dispose();
+});
