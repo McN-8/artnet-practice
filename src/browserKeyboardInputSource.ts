@@ -62,7 +62,8 @@ export class BrowserKeyboardInputSource implements InputSource {
       return false;
     }
     return (target as Element).closest(
-      "input, textarea, select, [contenteditable]:not([contenteditable='false'])"
+      "button, a, input, textarea, select, " +
+      "[contenteditable]:not([contenteditable='false'])"
     ) !== null;
   }
 }

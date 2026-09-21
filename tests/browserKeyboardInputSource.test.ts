@@ -61,6 +61,9 @@ test("editing, modifier, repeat, and composition keys pass through", () => {
   assert.equal(root.press("ArrowRight", {
     target: {closest: () => ({tagName: "INPUT"})}
   }), false);
+  assert.equal(root.press("Enter", {
+    target: {closest: () => ({tagName: "BUTTON"})}
+  }), false);
   assert.equal(root.press("Escape"), false);
   assert.deepEqual(received, []);
   source.dispose();
