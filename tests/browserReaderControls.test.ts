@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BrowserReaderControls } from "../src/browserReaderControls.js";
 import { InputType } from "../src/inputType.js";
+import { Prompt } from "../src/prompt.js";
+import { State } from "../src/state.js";
+import { Transition } from "../src/transition.js";
+import { TransitionEffect } from "../src/transitionEffect.js";
 import type { ReaderInput } from "../src/subsystemAdapters.js";
 
 class FakeElement {
@@ -10,6 +14,8 @@ class FakeElement {
   style: Record<string, string> = {};
   textContent = "";
   type = "";
+  hidden = false;
+  disabled = false;
   private readonly handlers = new Map<string, () => void>();
   private parent?: FakeElement;
 
@@ -84,4 +90,56 @@ test("visible native controls cover every input and preserve host content", () =
   assert.deepEqual(root.children, [existing]);
   nav.children[0]!.click();
   assert.equal(received.length, 2);
+});
+
+test("controls expose only actionable interactive prompts and target matches", () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  let target = "detail";
+  const controls = new BrowserReaderControls(
+    root as unknown as HTMLElement, () => target
+  );
+  const state = new State("one", "one.png", "Scene");
+  const transition = new Transition("two", new TransitionEffect("none", 0));
+  state.addPrompt(new Prompt(InputType.TAP_RIGHT, transition));
+  state.addPrompt(new Prompt(InputType.PINCH_ZOOM, transition, "detail"));
+  state.addPrompt(new Prompt(InputType.HOLD, transition, "other"));
+  controls.updateForState(state, "interactive");
+  const buttons = root.children[0]!.children;
+  assert.deepEqual(buttons.filter((button) => !button.hidden).map(
+    (button) => button.attributes.get("data-input-type")
+  ), [InputType.TAP_RIGHT, InputType.PINCH_ZOOM]);
+  const received: ReaderInput[] = [];
+  controls.subscribe((input) => received.push(input));
+  buttons[2]!.click();
+  buttons[6]!.click();
+  assert.deepEqual(received, [
+    {type: InputType.PINCH_ZOOM, targetId: "detail"}
+  ]);
+  target = "other";
+  controls.updateForState(state, "interactive");
+  assert.equal(buttons[2]!.hidden, false);
+  assert.equal(buttons[6]!.disabled, true);
+  state.inputLocked = true;
+  controls.updateForState(state, "interactive");
+  assert.ok(buttons.every((button) => button.disabled && button.hidden));
+  controls.dispose();
+});
+
+test("traditional controls respect page boundaries", () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const controls = new BrowserReaderControls(root as unknown as HTMLElement);
+  const page = new State("page", "page.png", "Page");
+  const buttons = root.children[0]!.children;
+  controls.updateForState(page, "paged", {index: 0, count: 3});
+  assert.equal(buttons[0]!.hidden, true);
+  assert.equal(buttons[1]!.hidden, false);
+  controls.updateForState(page, "verticalScroll", {index: 1, count: 3});
+  assert.equal(buttons[0]!.hidden, false);
+  assert.equal(buttons[1]!.hidden, false);
+  controls.updateForState(page, "paged", {index: 2, count: 3});
+  assert.equal(buttons[0]!.hidden, false);
+  assert.equal(buttons[1]!.hidden, true);
+  controls.dispose();
 });
