@@ -76,7 +76,7 @@ The editor and player should consume the same domain rules and serialization con
 | `Renderer` | Platform-neutral visual dispatch boundary | Receives state, panel, camera-path, effect, and overlay operations with the canonical render context and accessibility preferences |
 | `AssetLoader` | Asset request boundary | Receives load/unload requests for typed state assets; `AssetCache` is the synchronous prototype and `BrowserAssetLoader` adds fetch-backed, observable byte readiness |
 | `AudioPlayback` | Audio dispatch boundary | Receives cue play/stop and layer activation/deactivation; prototype implementation logs actions, and `BrowserAudioPlayback` plays fetched bytes through browser audio elements |
-| `InputSource` | Reader-input boundary | Subscribes typed input events and returns an unsubscribe function; `ManualInputSource` supports tests and previews, while `BrowserKeyboardInputSource` maps focus-scoped keyboard events |
+| `InputSource` | Reader-input boundary | Subscribes typed input events and returns an unsubscribe function; `ManualInputSource` supports tests/previews, while browser keyboard and touch adapters map device events |
 | `TextStorage` / `ProjectRepository` | Portable storage boundary | Reads/writes text by key; repository validates project and progress data, with an in-memory test adapter |
 | `ProgressSnapshotV1` | Portable in-memory reader checkpoint | Identifies project/story version, chapter/state, navigation history, fast-forward preference, and restoration checkpoint |
 | `Effect` | Reusable effect description | Registered by ID; includes type, trigger, and duration |
@@ -324,6 +324,7 @@ Timeline dispatch recognizes panel group, camera, effect, audio, and overlay eve
 - Serialized project data is separated from reconstructed runtime class instances.
 - The resource library is distinct from state ownership, supporting reuse and centralized edits.
 - `InputSource` subscriptions feed the engine's existing input path and can be explicitly unbound. Traditional page-turn inputs use that path without authored prompts. `BrowserKeyboardInputSource` is an optional browser adapter attached to a caller-owned, focusable reader host. It maps right/left/up/down arrows, Space, plus/equal, and Enter to the existing input types; Enter defaults to forward tap or can be configured as double tap where the authored interaction requires it. An optional target-ID provider supports targeted prompts. It prevents default handling only for recognized reader keys, ignores repeats, modified/composing keys, and editable descendants, and removes its listener on disposal. It does not install a document-wide listener, infer actual double-tap timing, handle touch, or create focus/reader controls; those remain application responsibilities.
+- `BrowserTouchInputSource` is a separate optional `InputSource` bound to the caller-owned reader host. One-finger taps in the host's left or right half emit directional tap inputs; vertical movement of at least 40 CSS pixels within 500 ms emits up/down swipe input. Movement within 12 pixels counts as a tap; ambiguous movement, long presses, cancellation, mouse/pen events, and multi-touch do not emit. Interactive descendants retain their own events. The adapter does not call `preventDefault`, allowing host scrolling; hosts must decide whether swipe-to-advance is appropriate for their presentation mode. It accepts the same optional target-ID provider, and disposal removes its listeners. Hold, double tap, pinch/zoom, gesture arbitration with browser scrolling, and accessible visible controls remain planned rather than implied by this basic adapter.
 
 No visual editor is implemented in the evidenced prototype.
 
@@ -673,7 +674,7 @@ The following decisions must remain open until explicitly resolved:
 
 These are Planned and ordered to reduce architectural risk; they are not claims of completion:
 
-1. Continue the browser player target: define a whole-state image/audio readiness policy, audio unlock and mixing policy, complete renderer visual/accessibility coverage, and implement touch/device-input adapters and reader controls against the established contracts.
+1. Continue the browser player target: define a whole-state image/audio readiness policy, audio unlock and mixing policy, complete renderer visual/accessibility coverage, and complete touch gesture/device-input arbitration and reader controls against the established contracts.
 
 ## 21. Canonical maintenance rules
 
