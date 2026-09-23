@@ -49,7 +49,7 @@ test("touch source maps side taps and vertical swipes", () => {
   assert.equal(root.listenerCount(), 0);
 });
 
-test("touch source rejects scroll-like ambiguity, long press, and cancellation", () => {
+test("touch source rejects scroll-like ambiguity, moved long press, and cancellation", () => {
   const root = new FakeRoot();
   const source = new BrowserTouchInputSource(root as unknown as HTMLElement);
   const received: ReaderInput[] = [];
@@ -57,7 +57,7 @@ test("touch source rejects scroll-like ambiguity, long press, and cancellation",
   root.emit("pointerdown", 250, 80, 0);
   root.emit("pointerup", 270, 90, 30);
   root.emit("pointerdown", 250, 80, 100);
-  root.emit("pointerup", 250, 80, 700);
+  root.emit("pointerup", 270, 80, 700);
   root.emit("pointerdown", 250, 80, 800);
   root.emit("pointercancel", 250, 80, 850);
   root.emit("pointerup", 250, 80, 900);
@@ -68,6 +68,29 @@ test("touch source rejects scroll-like ambiguity, long press, and cancellation",
   });
   root.emit("pointerup", 250, 80, 1120);
   assert.deepEqual(received, []);
+  source.dispose();
+});
+
+test("stationary touch hold emits once on release, never a tap", () => {
+  const root = new FakeRoot();
+  const source = new BrowserTouchInputSource(
+    root as unknown as HTMLElement, () => "inspect-target"
+  );
+  const received: ReaderInput[] = [];
+  source.subscribe((input) => received.push(input));
+  root.emit("pointerdown", 450, 80, 0);
+  root.emit("pointerup", 455, 85, 499);
+  assert.deepEqual(received, [
+    {type: InputType.TAP_RIGHT, targetId: "inspect-target"}
+  ]);
+  root.emit("pointerdown", 450, 80, 600);
+  root.emit("pointerup", 455, 85, 1100);
+  assert.deepEqual(received, [
+    {type: InputType.TAP_RIGHT, targetId: "inspect-target"},
+    {type: InputType.HOLD, targetId: "inspect-target"}
+  ]);
+  root.emit("pointerup", 455, 85, 1200);
+  assert.equal(received.length, 2);
   source.dispose();
 });
 
