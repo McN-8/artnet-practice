@@ -10,7 +10,7 @@ interface TouchStart {
 
 interface TouchPoint { x: number; y: number; }
 
-/** Minimal reader touch gestures: side taps, vertical swipes, and pinch. */
+/** Minimal reader touch gestures: side taps, hold, vertical swipes, and pinch. */
 export class BrowserTouchInputSource implements InputSource {
   private readonly listeners = new Set<(input: ReaderInput) => void>();
   private readonly activePointers = new Map<number, TouchPoint>();
@@ -101,7 +101,14 @@ export class BrowserTouchInputSource implements InputSource {
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     const elapsed = event.timeStamp - start.time;
-    if (elapsed < 0 || elapsed > 500) return;
+    if (elapsed < 0) return;
+
+    // Hold is a one-shot input on release; it cannot also become a tap.
+    if (Math.abs(dx) <= 12 && Math.abs(dy) <= 12 && elapsed >= 500) {
+      this.emit(InputType.HOLD);
+      return;
+    }
+    if (elapsed > 500) return;
 
     let type: InputType;
     if (Math.abs(dy) >= 40 && Math.abs(dy) > Math.abs(dx)) {
