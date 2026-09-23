@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BrowserTouchInputSource } from
   "../src/browserTouchInputSource.js";
+import { DeterministicClock } from "../src/clock.js";
 import { InputType } from "../src/inputType.js";
 import type { ReaderInput } from "../src/subsystemAdapters.js";
 
@@ -145,4 +146,46 @@ test("small two-finger changes and a third finger do not emit", () => {
   root.emit("pointermove", 400, 100, 20, {pointerId: 2});
   assert.deepEqual(received, []);
   source.dispose();
+});
+
+test("opt-in double tap suppresses its two single taps", () => {
+  const root = new FakeRoot();
+  const clock = new DeterministicClock();
+  const source = new BrowserTouchInputSource(
+    root as unknown as HTMLElement, () => "detail", () => true, clock
+  );
+  const received: ReaderInput[] = [];
+  source.subscribe((input) => received.push(input));
+  root.emit("pointerdown", 450, 80, 0);
+  root.emit("pointerup", 450, 80, 20);
+  assert.deepEqual(received, []);
+  root.emit("pointerdown", 452, 82, 100);
+  root.emit("pointerup", 452, 82, 120);
+  assert.deepEqual(received, [
+    {type: InputType.DOUBLE_TAP, targetId: "detail"}
+  ]);
+  clock.advanceBy(300);
+  assert.equal(received.length, 1);
+  source.dispose();
+});
+
+test("opt-in unmatched tap emits after arbitration window", () => {
+  const root = new FakeRoot();
+  const clock = new DeterministicClock();
+  const source = new BrowserTouchInputSource(
+    root as unknown as HTMLElement, () => undefined, () => true, clock
+  );
+  const received: ReaderInput[] = [];
+  source.subscribe((input) => received.push(input));
+  root.emit("pointerdown", 150, 80, 0);
+  root.emit("pointerup", 150, 80, 20);
+  clock.advanceBy(299);
+  assert.deepEqual(received, []);
+  clock.advanceBy(1);
+  assert.deepEqual(received, [{type: InputType.TAP_LEFT}]);
+  root.emit("pointerdown", 450, 80, 400);
+  root.emit("pointerup", 450, 80, 420);
+  source.dispose();
+  clock.advanceBy(300);
+  assert.equal(received.length, 1);
 });
