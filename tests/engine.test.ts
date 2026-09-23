@@ -112,6 +112,23 @@ test("starting another state cancels abandoned timeline timers", () => {
   assert.equal(clock.pendingTimerCount, 0);
 });
 
+test("state subscribers receive current and activated states until removed", () => {
+  const clock = new DeterministicClock();
+  const first = new State("one", "one.png", "One");
+  const second = new State("two", "two.png", "Two");
+  const engine = createEngine(first, [first, second], clock);
+  const received: string[] = [];
+  const unsubscribe = engine.subscribeStateChanges(
+    (state) => received.push(state.id)
+  );
+  assert.deepEqual(received, ["one"]);
+  engine.startState(second);
+  assert.deepEqual(received, ["one", "two"]);
+  unsubscribe();
+  engine.startState(first);
+  assert.deepEqual(received, ["one", "two"]);
+});
+
 test("auto-advance runs through the deterministic clock", () => {
   const clock = new DeterministicClock();
   const first = new State("one", "one.png", "One");
