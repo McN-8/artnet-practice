@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { BrowserReaderInput } from "../src/browserReaderInput.js";
+import { AudioStack } from "../src/audioStack.js";
 import { DeterministicClock } from "../src/clock.js";
+import { Engine } from "../src/engine.js";
 import { InputType } from "../src/inputType.js";
 import { Prompt } from "../src/prompt.js";
 import { State } from "../src/state.js";
@@ -131,5 +133,29 @@ test("controller enables double-tap arbitration only for matching state target",
     {type: InputType.TAP_RIGHT, targetId: "visible"}
   ]);
   assert.equal(clock.pendingTimerCount, 0);
+  input.dispose();
+});
+
+test("connect binds engine input and refreshes traditional page controls", () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const input = new BrowserReaderInput(root as unknown as HTMLElement);
+  const first = new State("first", "first.png", "First");
+  const second = new State("second", "second.png", "Second");
+  const engine = new Engine(
+    first, [first, second], new AudioStack(), 1, 2,
+    new DeterministicClock(), undefined, undefined, "paged"
+  );
+  const disconnect = input.connect(engine);
+  const buttons = root.children[0]!.children;
+  assert.equal(buttons[0]!.hidden, true);
+  assert.equal(buttons[1]!.hidden, false);
+  buttons[1]!.click();
+  assert.equal(engine.currentState, second);
+  assert.equal(buttons[0]!.hidden, false);
+  assert.equal(buttons[1]!.hidden, true);
+  disconnect();
+  buttons[0]!.click();
+  assert.equal(engine.currentState, second);
   input.dispose();
 });

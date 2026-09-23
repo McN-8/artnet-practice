@@ -53,6 +53,7 @@ export class Engine {
   assetCache: AssetLoader;
   audioPlayback: AudioPlayback;
   private inputUnsubscribe: (() => void) | undefined;
+  private readonly stateListeners = new Set<(state: State) => void>();
 
   activeTimers: ClockTimer[];
 
@@ -127,6 +128,12 @@ export class Engine {
   unbindInput(): void {
     this.inputUnsubscribe?.();
     this.inputUnsubscribe = undefined;
+  }
+
+  subscribeStateChanges(listener: (state: State) => void): () => void {
+    this.stateListeners.add(listener);
+    listener(this.currentState);
+    return () => { this.stateListeners.delete(listener); };
   }
 
   setReaderTimingPreferences(
@@ -520,6 +527,7 @@ export class Engine {
   private activateState(state: State): void {
   this.lifecycleActive = true;
   this.currentState = state;
+  for (const listener of [...this.stateListeners]) listener(state);
   this.renderer.renderState(state, this.renderContext);
   this.applyAudioLayerRules(state);
   for (const cue of state.audioCues) {

@@ -6,6 +6,7 @@ import type { PagePosition } from "./browserReaderControls.js";
 import { BrowserTouchInputSource } from "./browserTouchInputSource.js";
 import { SystemClock } from "./clock.js";
 import type { Clock } from "./clock.js";
+import type { Engine } from "./engine.js";
 import { InputType } from "./inputType.js";
 import type { PresentationMode } from "./presentationMode.js";
 import type { State } from "./state.js";
@@ -26,6 +27,7 @@ export class BrowserReaderInput implements InputSource {
   private readonly targetId: () => string | undefined;
   private readonly childUnsubscribes: Array<() => void>;
   private state: State | undefined;
+  private engineDisconnect: (() => void) | undefined;
   private disposed = false;
 
   constructor(root: HTMLElement, options: BrowserReaderInputOptions = {}) {
@@ -64,9 +66,35 @@ export class BrowserReaderInput implements InputSource {
     this.controls.updateForState(state, mode, pagePosition);
   }
 
+  /** Bind input and state refresh together; replaces this coordinator's prior link. */
+  connect(engine: Engine): () => void {
+    if (this.disposed) return () => {};
+    this.disconnect();
+    const unbindInput = engine.bindInput(this);
+    const unsubscribeState = engine.subscribeStateChanges((state) => {
+      this.updateForState(state, engine.presentationMode, {
+        index: engine.getCurrentStateIndex(), count: engine.states.length
+      });
+    });
+    const disconnect = () => {
+      unsubscribeState();
+      unbindInput();
+      if (this.engineDisconnect === disconnect) {
+        this.engineDisconnect = undefined;
+      }
+    };
+    this.engineDisconnect = disconnect;
+    return disconnect;
+  }
+
+  disconnect(): void {
+    this.engineDisconnect?.();
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.disconnect();
     for (const unsubscribe of this.childUnsubscribes) unsubscribe();
     this.keyboard.dispose();
     this.touch.dispose();
