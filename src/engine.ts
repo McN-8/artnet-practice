@@ -54,6 +54,8 @@ export class Engine {
   audioPlayback: AudioPlayback;
   private inputUnsubscribe: (() => void) | undefined;
   private readonly stateListeners = new Set<(state: State) => void>();
+  private readonly inputLockListeners = new Set<(locked: boolean) => void>();
+  private runtimeInputLocked: boolean;
 
   activeTimers: ClockTimer[];
 
@@ -94,6 +96,7 @@ export class Engine {
     audioPlayback: AudioPlayback = new PrototypeAudioPlayback()
   ) {
     this.currentState = initialState;
+    this.runtimeInputLocked = initialState.inputLocked;
     this.states = states;
     this.navigationHistory = [];
     this.audioStack = audioStack;
@@ -134,6 +137,16 @@ export class Engine {
     this.stateListeners.add(listener);
     listener(this.currentState);
     return () => { this.stateListeners.delete(listener); };
+  }
+
+  subscribeInputLockChanges(listener: (locked: boolean) => void): () => void {
+    this.inputLockListeners.add(listener);
+    listener(this.runtimeInputLocked);
+    return () => { this.inputLockListeners.delete(listener); };
+  }
+
+  isInputLocked(): boolean {
+    return this.runtimeInputLocked;
   }
 
   setReaderTimingPreferences(
@@ -527,15 +540,26 @@ export class Engine {
   private activateState(state: State): void {
   this.lifecycleActive = true;
   this.currentState = state;
+  this.setRuntimeInputLocked(state.inputLocked);
   for (const listener of [...this.stateListeners]) listener(state);
   this.renderer.renderState(state, this.renderContext);
   this.applyAudioLayerRules(state);
   for (const cue of state.audioCues) {
     this.audioPlayback.playCue(cue);
   }
+  if (this.runtimeInputLocked && state.inputLockDuration > 0) {
+    this.schedule(() => this.setRuntimeInputLocked(false),
+      state.inputLockDuration);
+  }
   this.playTimeline(state);
   this.scheduleAutoAdvance();
  }
+
+  private setRuntimeInputLocked(locked: boolean): void {
+    if (this.runtimeInputLocked === locked) return;
+    this.runtimeInputLocked = locked;
+    for (const listener of [...this.inputLockListeners]) listener(locked);
+  }
 
   // Transition Pipeline
   prepareTransition(destinationState: State): void {
@@ -562,7 +586,7 @@ export class Engine {
   targetId?: string
     ): void {
   if (isTraditionalPresentationMode(this.presentationMode)) {
-    if (this.currentState.inputLocked) return;
+    if (this.runtimeInputLocked) return;
     if (inputType === InputType.TAP_RIGHT) {
       this.advanceTraditionalPage();
       return;
@@ -605,7 +629,7 @@ export class Engine {
         );
         return;
     }
-    if (this.currentState.inputLocked) {
+    if (this.runtimeInputLocked) {
       console.log(`Input is locked for ${this.currentState.id}. Prompt ignored.`);
       return;
     }

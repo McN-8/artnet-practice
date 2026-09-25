@@ -142,13 +142,18 @@ test("connect binds engine input and refreshes traditional page controls", () =>
   const input = new BrowserReaderInput(root as unknown as HTMLElement);
   const first = new State("first", "first.png", "First");
   const second = new State("second", "second.png", "Second");
+  first.configureInputLock(50);
+  const clock = new DeterministicClock();
   const engine = new Engine(
     first, [first, second], new AudioStack(), 1, 2,
-    new DeterministicClock(), undefined, undefined, "paged"
+    clock, undefined, undefined, "paged"
   );
   const disconnect = input.connect(engine);
+  engine.startState(first);
   const buttons = root.children[0]!.children;
   assert.equal(buttons[0]!.hidden, true);
+  assert.equal(buttons[1]!.hidden, true);
+  clock.advanceBy(50);
   assert.equal(buttons[1]!.hidden, false);
   buttons[1]!.click();
   assert.equal(engine.currentState, second);

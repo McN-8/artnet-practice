@@ -27,6 +27,7 @@ export class BrowserReaderInput implements InputSource {
   private readonly targetId: () => string | undefined;
   private readonly childUnsubscribes: Array<() => void>;
   private state: State | undefined;
+  private inputLocked = false;
   private engineDisconnect: (() => void) | undefined;
   private disposed = false;
 
@@ -60,10 +61,12 @@ export class BrowserReaderInput implements InputSource {
   updateForState(
     state: State,
     mode: PresentationMode,
-    pagePosition?: PagePosition
+    pagePosition?: PagePosition,
+    inputLocked: boolean = state.inputLocked
   ): void {
     this.state = state;
-    this.controls.updateForState(state, mode, pagePosition);
+    this.inputLocked = inputLocked;
+    this.controls.updateForState(state, mode, pagePosition, inputLocked);
   }
 
   /** Bind input and state refresh together; replaces this coordinator's prior link. */
@@ -71,13 +74,16 @@ export class BrowserReaderInput implements InputSource {
     if (this.disposed) return () => {};
     this.disconnect();
     const unbindInput = engine.bindInput(this);
-    const unsubscribeState = engine.subscribeStateChanges((state) => {
-      this.updateForState(state, engine.presentationMode, {
-        index: engine.getCurrentStateIndex(), count: engine.states.length
-      });
-    });
+    const refresh = () => this.updateForState(
+      engine.currentState, engine.presentationMode,
+      {index: engine.getCurrentStateIndex(), count: engine.states.length},
+      engine.isInputLocked()
+    );
+    const unsubscribeState = engine.subscribeStateChanges(refresh);
+    const unsubscribeLock = engine.subscribeInputLockChanges(refresh);
     const disconnect = () => {
       unsubscribeState();
+      unsubscribeLock();
       unbindInput();
       if (this.engineDisconnect === disconnect) {
         this.engineDisconnect = undefined;
@@ -101,12 +107,13 @@ export class BrowserReaderInput implements InputSource {
     this.controls.dispose();
     this.listeners.clear();
     this.state = undefined;
+    this.inputLocked = false;
   }
 
   private doubleTapAvailable(): boolean {
     const state = this.state;
     const targetId = this.targetId();
-    return state !== undefined && !state.inputLocked && state.prompts.some(
+    return state !== undefined && !this.inputLocked && state.prompts.some(
       (prompt) => prompt.inputType === InputType.DOUBLE_TAP &&
         (prompt.targetId === undefined || prompt.targetId === targetId)
     );

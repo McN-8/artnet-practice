@@ -129,6 +129,40 @@ test("state subscribers receive current and activated states until removed", () 
   assert.deepEqual(received, ["one", "two"]);
 });
 
+test("configured input lock releases on the deterministic clock", () => {
+  const clock = new DeterministicClock();
+  const first = new State("one", "one.png", "One");
+  const second = new State("two", "two.png", "Two");
+  first.addPrompt(createPrompt("two"));
+  first.configureInputLock(100);
+  const engine = createEngine(first, [first, second], clock);
+  const locks: boolean[] = [];
+  engine.subscribeInputLockChanges((locked) => locks.push(locked));
+  engine.startState(first);
+  engine.handleInput(InputType.TAP_RIGHT);
+  assert.equal(engine.currentState, first);
+  clock.advanceBy(99);
+  assert.equal(engine.isInputLocked(), true);
+  clock.advanceBy(1);
+  assert.equal(engine.isInputLocked(), false);
+  engine.handleInput(InputType.TAP_RIGHT);
+  assert.equal(engine.currentState, second);
+  assert.deepEqual(locks, [true, false]);
+});
+
+test("starting another state cancels its predecessor's input unlock", () => {
+  const clock = new DeterministicClock();
+  const locked = new State("locked", "locked.png", "Locked");
+  locked.configureInputLock(100);
+  const open = new State("open", "open.png", "Open");
+  const engine = createEngine(locked, [locked, open], clock);
+  engine.startState(locked);
+  engine.startState(open);
+  clock.advanceBy(100);
+  assert.equal(engine.currentState, open);
+  assert.equal(engine.isInputLocked(), false);
+});
+
 test("auto-advance runs through the deterministic clock", () => {
   const clock = new DeterministicClock();
   const first = new State("one", "one.png", "One");
