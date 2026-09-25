@@ -63,10 +63,11 @@ export class BrowserReaderControls implements InputSource {
   updateForState(
     state: State,
     mode: PresentationMode,
-    pagePosition?: PagePosition
+    pagePosition?: PagePosition,
+    inputLocked: boolean = state.inputLocked
   ): void {
     const available = new Set<InputType>();
-    if (!state.inputLocked) {
+    if (!inputLocked) {
       const targetId = this.targetId();
       for (const prompt of state.prompts) {
         if (prompt.targetId === undefined || prompt.targetId === targetId) {
