@@ -27,6 +27,8 @@ export class BrowserReaderInput implements InputSource {
   private readonly targetId: () => string | undefined;
   private readonly childUnsubscribes: Array<() => void>;
   private state: State | undefined;
+  private mode: PresentationMode | undefined;
+  private pagePosition: PagePosition | undefined;
   private inputLocked = false;
   private engineDisconnect: (() => void) | undefined;
   private disposed = false;
@@ -65,8 +67,19 @@ export class BrowserReaderInput implements InputSource {
     inputLocked: boolean = state.inputLocked
   ): void {
     this.state = state;
+    this.mode = mode;
+    this.pagePosition = pagePosition;
     this.inputLocked = inputLocked;
     this.controls.updateForState(state, mode, pagePosition, inputLocked);
+  }
+
+  /** Re-read the target provider and refresh actions without changing state. */
+  refreshTarget(): void {
+    this.touch.cancelPendingTap();
+    if (!this.state || !this.mode) return;
+    this.controls.updateForState(
+      this.state, this.mode, this.pagePosition, this.inputLocked
+    );
   }
 
   /** Bind input and state refresh together; replaces this coordinator's prior link. */
@@ -107,6 +120,8 @@ export class BrowserReaderInput implements InputSource {
     this.controls.dispose();
     this.listeners.clear();
     this.state = undefined;
+    this.mode = undefined;
+    this.pagePosition = undefined;
     this.inputLocked = false;
   }
 

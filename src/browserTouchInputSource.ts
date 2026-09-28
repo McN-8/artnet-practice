@@ -49,13 +49,18 @@ export class BrowserTouchInputSource implements InputSource {
     return () => { this.listeners.delete(listener); };
   }
 
+  /** Cancel delayed single-tap arbitration when selection context changes. */
+  cancelPendingTap(): void {
+    this.clearPendingTap();
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.start = undefined;
     this.pinchStartDistance = undefined;
     this.pinchEmitted = false;
-    this.cancelPendingTap();
+    this.clearPendingTap();
     this.activePointers.clear();
     this.root.removeEventListener("pointerdown", this.onDown);
     this.root.removeEventListener("pointermove", this.onMove);
@@ -174,7 +179,7 @@ export class BrowserTouchInputSource implements InputSource {
     time: number
   ): void {
     if (!this.doubleTapEnabled()) {
-      this.cancelPendingTap(true);
+      this.clearPendingTap(true);
       this.emit(type);
       return;
     }
@@ -183,11 +188,11 @@ export class BrowserTouchInputSource implements InputSource {
     if (pending && time >= pending.time && time - pending.time <= 300 &&
       Math.hypot(x - pending.x, y - pending.y) <= 24 &&
       targetId === pending.targetId) {
-      this.cancelPendingTap();
+      this.clearPendingTap();
       this.emitInput(InputType.DOUBLE_TAP, targetId);
       return;
     }
-    this.cancelPendingTap(true);
+    this.clearPendingTap(true);
     const tap: Omit<PendingTap, "timer"> = {type, x, y, time, targetId};
     const timer = this.clock.setTimeout(() => {
       if (this.pendingTap?.timer !== timer) return;
@@ -197,7 +202,7 @@ export class BrowserTouchInputSource implements InputSource {
     this.pendingTap = {...tap, timer};
   }
 
-  private cancelPendingTap(emit: boolean = false): void {
+  private clearPendingTap(emit: boolean = false): void {
     const pending = this.pendingTap;
     if (!pending) return;
     this.clock.clearTimeout(pending.timer);

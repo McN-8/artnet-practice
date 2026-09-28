@@ -136,6 +136,46 @@ test("controller enables double-tap arbitration only for matching state target",
   input.dispose();
 });
 
+test("target refresh updates actions and cancels old-target tap arbitration", () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const clock = new DeterministicClock();
+  let target = "first-detail";
+  const input = new BrowserReaderInput(root as unknown as HTMLElement, {
+    clock, targetId: () => target
+  });
+  const transition = new Transition("two", new TransitionEffect("none", 0));
+  const state = new State("one", "one.png", "Scene");
+  state.addPrompt(new Prompt(
+    InputType.DOUBLE_TAP, transition, "first-detail"
+  ));
+  state.addPrompt(new Prompt(
+    InputType.PINCH_ZOOM, transition, "second-detail"
+  ));
+  input.updateForState(state, "interactive");
+  const controls = root.children[0]!.children;
+  assert.equal(controls[3]!.hidden, false);
+  assert.equal(controls[6]!.hidden, true);
+  const received: ReaderInput[] = [];
+  input.subscribe((event) => received.push(event));
+  root.dispatch("pointerdown", pointer(1, 300, 0));
+  root.dispatch("pointerup", pointer(1, 300, 20));
+  assert.equal(clock.pendingTimerCount, 1);
+
+  target = "second-detail";
+  input.refreshTarget();
+  assert.equal(clock.pendingTimerCount, 0);
+  assert.equal(controls[3]!.hidden, true);
+  assert.equal(controls[6]!.hidden, false);
+  clock.advanceBy(300);
+  assert.deepEqual(received, []);
+  controls[6]!.click();
+  assert.deepEqual(received, [
+    {type: InputType.PINCH_ZOOM, targetId: "second-detail"}
+  ]);
+  input.dispose();
+});
+
 test("connect binds engine input and refreshes traditional page controls", () => {
   const document = new FakeDocument();
   const root = document.createElement("div");
