@@ -110,6 +110,11 @@ test("state and panel DOM use text and accessible image descriptions", () => {
   treatment.transform.scaleX = 1.5;
   treatment.transform.flipY = true;
   treatment.appearance.opacity = 0.5;
+  treatment.appearance.filter = "grayscale(1)";
+  treatment.appearance.outlineWidth = 4;
+  treatment.appearance.outlineColor = "#ff00aa";
+  treatment.crop = {x: 0.1, y: 0.2, width: 0.6, height: 0.5};
+  treatment.mask = {shape: "ellipse", feather: 0.25};
   renderer.revealPanel(new PanelReveal(
     new Panel("moon", "moon.png", "A bright moon"),
     0, 10, 20, 300, 200, 15, treatment
@@ -118,9 +123,16 @@ test("state and panel DOM use text and accessible image descriptions", () => {
   assert.equal(placement.style.left, "10px");
   assert.equal(placement.style.width, "300px");
   assert.equal(placement.style.opacity, "0.5");
+  assert.equal(placement.style.filter, "grayscale(1)");
+  assert.equal(placement.style.outline, "4px solid #ff00aa");
+  assert.equal(placement.style.outlineOffset, "-4px");
+  assert.equal(placement.style.clipPath, "ellipse(50% 50% at 50% 50%)");
+  assert.equal(placement.attributes.get("data-mask-feather"), "0.25");
   assert.match(placement.style.transform!, /rotate\(15deg\)/);
   assert.match(placement.style.transform!, /scale\(1.5, -1\)/);
   assert.equal(placement.children[0]!.attributes.get("alt"), "A bright moon");
+  assert.equal(placement.children[0]!.style.clipPath,
+    "inset(20% 30% 30% 10%)");
 
   renderer.renderState(new State("two", "two.png", "Second"),
     DEFAULT_RENDER_CONTEXT);
