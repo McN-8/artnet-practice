@@ -149,6 +149,19 @@ export class BrowserRenderer implements Renderer {
       `scale(${transform.scaleX * flipX}, ${transform.scaleY * flipY})`
     ].join(" ");
     placement.style.opacity = String(reveal.treatment.appearance.opacity);
+    placement.style.filter = reveal.treatment.appearance.filter;
+    const outlineWidth = reveal.treatment.appearance.outlineWidth;
+    if (outlineWidth > 0) {
+      placement.style.outline =
+        `${outlineWidth}px solid ${reveal.treatment.appearance.outlineColor}`;
+      placement.style.outlineOffset = `-${outlineWidth}px`;
+    }
+    const mask = reveal.treatment.mask;
+    if (mask) {
+      placement.style.clipPath = mask.shape === "ellipse"
+        ? "ellipse(50% 50% at 50% 50%)" : "inset(0)";
+      placement.setAttribute("data-mask-feather", String(mask.feather));
+    }
 
     if (reveal.panel.asset) {
       const image = document.createElement("img");
@@ -157,6 +170,14 @@ export class BrowserRenderer implements Renderer {
       image.style.width = "100%";
       image.style.height = "100%";
       image.style.objectFit = "contain";
+      const crop = reveal.treatment.crop;
+      if (crop) {
+        const right = 1 - crop.x - crop.width;
+        const bottom = 1 - crop.y - crop.height;
+        image.style.clipPath = `inset(${this.percent(crop.y)} ` +
+          `${this.percent(right)} ${this.percent(bottom)} ` +
+          `${this.percent(crop.x)})`;
+      }
       placement.append(image);
     } else if (reveal.panel.accessibleDescription) {
       placement.setAttribute("role", "img");
@@ -171,6 +192,10 @@ export class BrowserRenderer implements Renderer {
   runCameraPath(_path: CameraPath, _context: RenderContext): void {}
   runEffect(_effect: Effect, _context: RenderContext): void {}
   displayOverlay(_overlay: OverlayAsset, _context: RenderContext): void {}
+
+  private percent(value: number): string {
+    return `${Number((value * 100).toFixed(6))}%`;
+  }
 
   private setImageSource(image: HTMLElement, file: string): void {
     const assets = this.imageAssets;
