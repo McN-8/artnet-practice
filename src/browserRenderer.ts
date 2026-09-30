@@ -1,4 +1,5 @@
 import { Asset } from "./asset.js";
+import { resolveMotionDuration } from "./accessibilityContract.js";
 import type { CameraPath } from "./cameraPath.js";
 import type { Effect } from "./effect.js";
 import type { OverlayAsset } from "./overlayAsset.js";
@@ -17,13 +18,19 @@ interface ObjectUrlFactory {
   revokeObjectURL(url: string): void;
 }
 
+interface CameraPathLookup {
+  get(id: string): CameraPath | undefined;
+}
+
 type DecodeImage = (image: HTMLImageElement) => Promise<void>;
 
-/** First browser adapter: state artwork, dialogue, and panel reveals only. */
+/** Browser DOM adapter for state art, dialogue, panels, and path overlays. */
 export class BrowserRenderer implements Renderer {
   private readonly stage: HTMLElement;
   private readonly backgroundLayer: HTMLElement;
   private readonly panelLayer: HTMLElement;
+  private readonly overlayLayer: HTMLElement;
+  private readonly effectLayer: HTMLElement;
   private readonly dialogueLayer: HTMLElement;
   private readonly sceneObjectUrls = new Map<string, string>();
   private sceneGeneration = 0;
@@ -36,12 +43,15 @@ export class BrowserRenderer implements Renderer {
     observeResize: boolean = true,
     private readonly imageAssets?: BrowserImageAssets,
     private readonly objectUrls: ObjectUrlFactory = URL,
-    private readonly decodeImage: DecodeImage = (image) => image.decode()
+    private readonly decodeImage: DecodeImage = (image) => image.decode(),
+    private readonly cameraPaths?: CameraPathLookup
   ) {
     const document = root.ownerDocument;
     this.stage = document.createElement("div");
     this.backgroundLayer = document.createElement("div");
     this.panelLayer = document.createElement("div");
+    this.overlayLayer = document.createElement("div");
+    this.effectLayer = document.createElement("div");
     this.dialogueLayer = document.createElement("div");
 
     root.setAttribute("role", "region");
@@ -59,6 +69,8 @@ export class BrowserRenderer implements Renderer {
     for (const layer of [
       this.backgroundLayer,
       this.panelLayer,
+      this.overlayLayer,
+      this.effectLayer,
       this.dialogueLayer
     ]) {
       layer.style.position = "absolute";
@@ -113,6 +125,8 @@ export class BrowserRenderer implements Renderer {
     this.backgroundLayer.replaceChildren(background);
 
     this.panelLayer.replaceChildren();
+    this.overlayLayer.replaceChildren();
+    this.effectLayer.replaceChildren();
     const dialogue = document.createElement("div");
     dialogue.textContent = state.dialogue;
     dialogue.style.position = "absolute";
@@ -191,7 +205,42 @@ export class BrowserRenderer implements Renderer {
 
   runCameraPath(_path: CameraPath, _context: RenderContext): void {}
   runEffect(_effect: Effect, _context: RenderContext): void {}
-  displayOverlay(_overlay: OverlayAsset, _context: RenderContext): void {}
+  displayOverlay(overlay: OverlayAsset, context: RenderContext): void {
+    if (this.disposed) return;
+    const document = this.root.ownerDocument;
+    const placement = document.createElement("div");
+    placement.setAttribute("data-overlay-id", overlay.id);
+    placement.style.position = "absolute";
+    const path = this.cameraPaths?.get(overlay.pathId);
+    if (!path) {
+      placement.setAttribute("data-overlay-status", "missingPath");
+      this.overlayLayer.append(placement);
+      return;
+    }
+    placement.setAttribute("data-overlay-status", "rendered");
+    placement.style.left = `${path.startPoint.x}px`;
+    placement.style.top = `${path.startPoint.y}px`;
+    placement.style.transform =
+      `translate(-50%, -50%) rotate(${overlay.rotation}deg)`;
+    const image = document.createElement("img");
+    this.setImageSource(image, overlay.asset);
+    image.setAttribute("alt", "");
+    placement.append(image);
+    this.overlayLayer.append(placement);
+
+    if (!overlay.followPath) return;
+    const duration = resolveMotionDuration(
+      overlay.duration, context.accessibility.reducedMotion
+    );
+    // Commit the start position before applying the destination transition.
+    placement.getBoundingClientRect();
+    if (duration > 0) {
+      placement.style.transition =
+        `left ${duration}ms ${path.easing}, top ${duration}ms ${path.easing}`;
+    }
+    placement.style.left = `${path.endPoint.x}px`;
+    placement.style.top = `${path.endPoint.y}px`;
+  }
 
   private percent(value: number): string {
     return `${Number((value * 100).toFixed(6))}%`;
