@@ -4,8 +4,11 @@ import { AudioStack } from "../src/audioStack.js";
 import { Asset } from "../src/asset.js";
 import { BrowserAssetLoader } from "../src/browserAssetLoader.js";
 import { BrowserRenderer } from "../src/browserRenderer.js";
+import { CameraFocalPoint } from "../src/cameraFocalPoint.js";
+import { CameraPath } from "../src/cameraPath.js";
 import { DeterministicClock } from "../src/clock.js";
 import { Engine } from "../src/engine.js";
+import { OverlayAsset } from "../src/overlayAsset.js";
 import { Panel } from "../src/panel.js";
 import { PanelGroup } from "../src/panelGroup.js";
 import { PanelReveal } from "../src/panelReveal.js";
@@ -101,7 +104,7 @@ test("state and panel DOM use text and accessible image descriptions", () => {
   renderer.renderState(first, DEFAULT_RENDER_CONTEXT);
   const stage = root.children[0]!;
   const background = stage.children[0]!.children[0]!;
-  const dialogue = stage.children[2]!.children[0]!;
+  const dialogue = stage.children[4]!.children[0]!;
   assert.equal(background.attributes.get("src"), "one.png");
   assert.equal(background.attributes.get("alt"), "");
   assert.equal(dialogue.textContent, "<script>literal dialogue</script>");
@@ -138,7 +141,7 @@ test("state and panel DOM use text and accessible image descriptions", () => {
     DEFAULT_RENDER_CONTEXT);
   assert.equal(stage.children[1]!.children.length, 0);
   assert.equal(stage.children[0]!.children[0]!.attributes.get("src"), "two.png");
-  assert.equal(stage.children[2]!.children[0]!.textContent, "Second");
+  assert.equal(stage.children[4]!.children[0]!.textContent, "Second");
 });
 
 test("engine reveals browser panels on its deterministic clock", () => {
@@ -337,7 +340,7 @@ test("image status waits for decode and decode failure clears the source", async
   const failedImage = failedRoot.children[0]!.children[0]!.children[0]!;
   assert.equal(failedImage.attributes.get("src"), undefined);
   assert.equal(failedImage.attributes.get("data-asset-status"), "failed");
-  assert.equal(failedRoot.children[0]!.children[2]!.children[0]!.textContent,
+  assert.equal(failedRoot.children[0]!.children[4]!.children[0]!.textContent,
     "Readable");
   failedRenderer.dispose();
   failedLoader.dispose();
@@ -374,4 +377,70 @@ test("late decode cannot change a replaced scene", async () => {
     .attributes.get("data-asset-status"), "decoded");
   renderer.dispose();
   loader.dispose();
+});
+
+test("browser overlay follows a resolved path on its dedicated layer", () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const path = new CameraPath(
+    "flight", new CameraFocalPoint("start", 100, 200, 1),
+    new CameraFocalPoint("end", 500, 600, 1), 900, "ease-in-out"
+  );
+  const renderer = new BrowserRenderer(
+    root as unknown as HTMLElement, false, undefined,
+    {createObjectURL: () => "", revokeObjectURL: () => {}},
+    async () => {}, {get: (id) => id === path.id ? path : undefined}
+  );
+  renderer.renderState(new State("one", "page.png", "Scene"),
+    DEFAULT_RENDER_CONTEXT);
+  renderer.displayOverlay(
+    new OverlayAsset("bird", "bird.png", "flight", 15, 800, true),
+    DEFAULT_RENDER_CONTEXT
+  );
+  const stage = root.children[0]!;
+  const overlay = stage.children[2]!.children[0]!;
+  assert.equal(overlay.attributes.get("data-overlay-id"), "bird");
+  assert.equal(overlay.attributes.get("data-overlay-status"), "rendered");
+  assert.equal(overlay.style.left, "500px");
+  assert.equal(overlay.style.top, "600px");
+  assert.equal(overlay.style.transition,
+    "left 800ms ease-in-out, top 800ms ease-in-out");
+  assert.equal(overlay.style.transform,
+    "translate(-50%, -50%) rotate(15deg)");
+  assert.equal(overlay.children[0]!.attributes.get("src"), "bird.png");
+  assert.equal(overlay.children[0]!.attributes.get("alt"), "");
+
+  renderer.displayOverlay(
+    new OverlayAsset("missing", "x.png", "unknown"),
+    DEFAULT_RENDER_CONTEXT
+  );
+  assert.equal(stage.children[2]!.children[1]!
+    .attributes.get("data-overlay-status"), "missingPath");
+  renderer.dispose();
+});
+
+test("reduced motion places an overlay at its final point without animation", () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const path = new CameraPath(
+    "flight", new CameraFocalPoint("start", 0, 0, 1),
+    new CameraFocalPoint("end", 40, 50, 1), 900, "linear"
+  );
+  const renderer = new BrowserRenderer(
+    root as unknown as HTMLElement, false, undefined,
+    {createObjectURL: () => "", revokeObjectURL: () => {}},
+    async () => {}, {get: () => path}
+  );
+  renderer.renderState(new State("one", "page.png", "Scene"),
+    DEFAULT_RENDER_CONTEXT);
+  renderer.displayOverlay(
+    new OverlayAsset("bird", "bird.png", "flight", 0, 800, true),
+    createRenderContext({...DEFAULT_ACCESSIBILITY_PREFERENCES,
+      reducedMotion: true})
+  );
+  const overlay = root.children[0]!.children[2]!.children[0]!;
+  assert.equal(overlay.style.left, "40px");
+  assert.equal(overlay.style.top, "50px");
+  assert.equal(overlay.style.transition, undefined);
+  renderer.dispose();
 });
