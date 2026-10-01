@@ -18,5 +18,7 @@ The prototype has state transitions, deterministic timer cleanup, reader-owned h
 - Seamlessly tiled backgrounds may loop along a path; edge continuity, reset position, and visible seam behavior need editor preview.
 - Motion blur should support an adjustable strength control and be scoped to the moving object or layer. Reduced-motion settings need a stable still alternative.
 - Native frame sequences, random-motion particles, directional explosion/splash scatter, and timed haptics should share authored clocks and deterministic replay. Device vibration is optional and must never be the only channel for information.
+- Object shake should support speed and an authored back-and-forth axis, from slow directional movement through vibration-like motion, while remaining deterministic under replay and backward restoration. Reduced motion may lower amplitude/rate or replace the shake with a static emphasis chosen by the creator.
+- The “HA HA HA” effect should place and remove text sporadically inside an authored region, with adjustable speed, size, optional per-instance size variation, and entry/exit modes including fade, grow-in, and shrink-out. Seeded placement and size selection should make playback, preview, and restoration reproducible.
 
 Each new timed behavior needs cancellation, cleanup, backwards navigation, fast-forward, resource-budget, and accessibility rules.
