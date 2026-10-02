@@ -444,3 +444,51 @@ test("reduced motion places an overlay at its final point without animation", ()
   assert.equal(overlay.style.transition, undefined);
   renderer.dispose();
 });
+
+test("camera paths transform scene layers while dialogue stays fixed", () => {
+  const {root, renderer} = mount();
+  renderer.renderState(new State("one", "page.png", "Stationary dialogue"),
+    DEFAULT_RENDER_CONTEXT);
+  renderer.runCameraPath(new CameraPath(
+    "pan", new CameraFocalPoint("start", 100, 200, 1.2),
+    new CameraFocalPoint("end", 700, 420, 1.8),
+    3000, "ease-in-out", 2
+  ), DEFAULT_RENDER_CONTEXT);
+
+  const stage = root.children[0]!;
+  for (const index of [0, 1, 2, 3]) {
+    const layer = stage.children[index]!;
+    assert.equal(layer.style.transformOrigin, "0 0");
+    assert.equal(layer.style.transform,
+      "translate(800px, 450px) scale(1.8) translate(-700px, -420px)");
+    assert.equal(layer.style.transition, "transform 1500ms ease-in-out");
+  }
+  assert.equal(stage.children[4]!.style.transform, undefined);
+  assert.equal(stage.children[4]!.style.transition, undefined);
+  renderer.dispose();
+});
+
+test("reduced motion finishes camera paths and new states reset them", () => {
+  const {root, renderer} = mount();
+  renderer.renderState(new State("one", "one.png", "One"),
+    DEFAULT_RENDER_CONTEXT);
+  renderer.runCameraPath(new CameraPath(
+    "pan", new CameraFocalPoint("start", 0, 0, 1),
+    new CameraFocalPoint("end", 400, 300, 2), 900, "linear"
+  ), createRenderContext({...DEFAULT_ACCESSIBILITY_PREFERENCES,
+    reducedMotion: true}));
+
+  const stage = root.children[0]!;
+  assert.equal(stage.children[0]!.style.transform,
+    "translate(800px, 450px) scale(2) translate(-400px, -300px)");
+  assert.equal(stage.children[0]!.style.transition, "");
+
+  renderer.renderState(new State("two", "two.png", "Two"),
+    DEFAULT_RENDER_CONTEXT);
+  for (const index of [0, 1, 2, 3]) {
+    assert.equal(stage.children[index]!.style.transform, "");
+    assert.equal(stage.children[index]!.style.transition, "");
+    assert.equal(stage.children[index]!.style.transformOrigin, "");
+  }
+  renderer.dispose();
+});

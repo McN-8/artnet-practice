@@ -115,6 +115,7 @@ export class BrowserRenderer implements Renderer {
   renderState(state: State, _context: RenderContext): void {
     if (this.disposed) return;
     this.releaseSceneImages();
+    this.resetCameraLayers();
     const document = this.root.ownerDocument;
     const background = document.createElement("img");
     this.setImageSource(background, state.image);
@@ -203,7 +204,28 @@ export class BrowserRenderer implements Renderer {
     this.panelLayer.append(placement);
   }
 
-  runCameraPath(_path: CameraPath, _context: RenderContext): void {}
+  runCameraPath(path: CameraPath, context: RenderContext): void {
+    if (this.disposed) return;
+    const duration = resolveMotionDuration(
+      path.duration / path.speedMultiplier,
+      context.accessibility.reducedMotion
+    );
+    const start = this.cameraTransform(path.startPoint);
+    const end = this.cameraTransform(path.endPoint);
+
+    for (const layer of this.cameraLayers()) {
+      layer.style.transformOrigin = "0 0";
+      layer.style.transition = "";
+      layer.style.transform = start;
+      // Commit the authored start before applying the destination transition.
+      layer.getBoundingClientRect();
+      if (duration > 0) {
+        layer.style.transition =
+          `transform ${duration}ms ${path.easing}`;
+      }
+      layer.style.transform = end;
+    }
+  }
   runEffect(_effect: Effect, _context: RenderContext): void {}
   displayOverlay(overlay: OverlayAsset, context: RenderContext): void {
     if (this.disposed) return;
@@ -244,6 +266,30 @@ export class BrowserRenderer implements Renderer {
 
   private percent(value: number): string {
     return `${Number((value * 100).toFixed(6))}%`;
+  }
+
+  private cameraLayers(): readonly HTMLElement[] {
+    return [
+      this.backgroundLayer,
+      this.panelLayer,
+      this.overlayLayer,
+      this.effectLayer
+    ];
+  }
+
+  private cameraTransform(point: CameraPath["startPoint"]): string {
+    const centerX = ARTNET_COORDINATE_SYSTEM.width / 2;
+    const centerY = ARTNET_COORDINATE_SYSTEM.height / 2;
+    return `translate(${centerX}px, ${centerY}px) ` +
+      `scale(${point.zoomLevel}) translate(${-point.x}px, ${-point.y}px)`;
+  }
+
+  private resetCameraLayers(): void {
+    for (const layer of this.cameraLayers()) {
+      layer.style.transition = "";
+      layer.style.transform = "";
+      layer.style.transformOrigin = "";
+    }
   }
 
   private setImageSource(image: HTMLElement, file: string): void {
