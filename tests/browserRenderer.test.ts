@@ -14,6 +14,7 @@ import { PanelGroup } from "../src/panelGroup.js";
 import { PanelReveal } from "../src/panelReveal.js";
 import { State } from "../src/state.js";
 import { TimelineEvent } from "../src/timelineEvent.js";
+import { VisualGroup } from "../src/visualGroup.js";
 import {
   createRenderContext,
   DEFAULT_RENDER_CONTEXT
@@ -182,6 +183,48 @@ test("reduced-motion context does not add browser animation", () => {
   assert.equal(panel.style.transition, undefined);
   assert.equal(panel.style.animation, undefined);
   assert.equal(stage.style.transition, undefined);
+  renderer.dispose();
+});
+
+test("browser renderer composes group and instance treatments", () => {
+  const document = new FakeDocument();
+  const root = document.createElement("div");
+  const groupTreatment = createDefaultVisualTreatment();
+  groupTreatment.transform.translateX = 30;
+  groupTreatment.appearance.opacity = 0.8;
+  groupTreatment.deformation = {
+    type: "stretch", amountX: 0.5, amountY: 0
+  };
+  groupTreatment.crop = {x: 0.1, y: 0.2, width: 0.7, height: 0.6};
+  const group = new VisualGroup("characters", ["hero"], groupTreatment);
+  const instanceTreatment = createDefaultVisualTreatment();
+  instanceTreatment.transform.rotation = 5;
+  instanceTreatment.deformation = {
+    type: "squeeze", amountX: 0.5, amountY: -1
+  };
+  const renderer = new BrowserRenderer(
+    root as unknown as HTMLElement, false, undefined,
+    {createObjectURL: () => "", revokeObjectURL: () => {}},
+    async () => {}, undefined, {getAll: () => [group]}
+  );
+  renderer.renderState(new State("one", "page.png", "Scene"),
+    DEFAULT_RENDER_CONTEXT);
+  renderer.revealPanel(new PanelReveal(
+    new Panel("hero", "hero.png", "The hero"),
+    0, 10, 20, 300, 200, 15, instanceTreatment
+  ), DEFAULT_RENDER_CONTEXT);
+
+  const placement = root.children[0]!.children[1]!.children[0]!;
+  const groupCrop = placement.children[0]!;
+  const instance = groupCrop.children[0]!;
+  assert.equal(placement.attributes.get("data-visual-group-id"), "characters");
+  assert.equal(placement.style.opacity, "0.8");
+  assert.match(placement.style.transform!, /translate\(30px, 0px\)/);
+  assert.match(placement.style.transform!, /scale\(1\.414214, 1\)$/);
+  assert.equal(groupCrop.style.clipPath, "inset(20% 20% 20% 10%)");
+  assert.match(instance.style.transform!, /rotate\(20deg\)/);
+  assert.match(instance.style.transform!, /scale\(0\.707107, 2\)$/);
+  assert.equal(instance.children[0]!.attributes.get("alt"), "The hero");
   renderer.dispose();
 });
 
