@@ -6,6 +6,8 @@ import type { OverlayAsset } from "./overlayAsset.js";
 import type { PanelReveal } from "./panelReveal.js";
 import type { Renderer } from "./renderer.js";
 import type { State } from "./state.js";
+import type { VisualGroup } from "./visualGroup.js";
+import type { VisualTreatment } from "./visualTransformation.js";
 import type { RenderContext } from "./visualContract.js";
 import { ARTNET_COORDINATE_SYSTEM } from "./visualContract.js";
 
@@ -20,6 +22,10 @@ interface ObjectUrlFactory {
 
 interface CameraPathLookup {
   get(id: string): CameraPath | undefined;
+}
+
+interface VisualGroupLookup {
+  getAll(): readonly VisualGroup[];
 }
 
 type DecodeImage = (image: HTMLImageElement) => Promise<void>;
@@ -44,7 +50,8 @@ export class BrowserRenderer implements Renderer {
     private readonly imageAssets?: BrowserImageAssets,
     private readonly objectUrls: ObjectUrlFactory = URL,
     private readonly decodeImage: DecodeImage = (image) => image.decode(),
-    private readonly cameraPaths?: CameraPathLookup
+    private readonly cameraPaths?: CameraPathLookup,
+    private readonly visualGroups?: VisualGroupLookup
   ) {
     const document = root.ownerDocument;
     this.stage = document.createElement("div");
@@ -146,37 +153,28 @@ export class BrowserRenderer implements Renderer {
     if (this.disposed) return;
     const document = this.root.ownerDocument;
     const placement = document.createElement("div");
-    const transform = reveal.treatment.transform;
-    const flipX = transform.flipX ? -1 : 1;
-    const flipY = transform.flipY ? -1 : 1;
     placement.setAttribute("data-panel-id", reveal.panel.id);
     placement.style.position = "absolute";
     placement.style.left = `${reveal.x}px`;
     placement.style.top = `${reveal.y}px`;
     placement.style.width = `${reveal.width}px`;
     placement.style.height = `${reveal.height}px`;
-    placement.style.transformOrigin =
-      `${transform.originX * 100}% ${transform.originY * 100}%`;
-    placement.style.transform = [
-      `translate(${transform.translateX}px, ${transform.translateY}px)`,
-      `rotate(${reveal.rotation + transform.rotation}deg)`,
-      `skew(${transform.skewX}deg, ${transform.skewY}deg)`,
-      `scale(${transform.scaleX * flipX}, ${transform.scaleY * flipY})`
-    ].join(" ");
-    placement.style.opacity = String(reveal.treatment.appearance.opacity);
-    placement.style.filter = reveal.treatment.appearance.filter;
-    const outlineWidth = reveal.treatment.appearance.outlineWidth;
-    if (outlineWidth > 0) {
-      placement.style.outline =
-        `${outlineWidth}px solid ${reveal.treatment.appearance.outlineColor}`;
-      placement.style.outlineOffset = `-${outlineWidth}px`;
+
+    const visualGroup = this.visualGroups?.getAll().find(
+      (group) => group.panelIds.includes(reveal.panel.id)
+    );
+    let instance = placement;
+    if (visualGroup) {
+      placement.setAttribute("data-visual-group-id", visualGroup.id);
+      this.applyTreatment(placement, visualGroup.treatment, 0);
+      const groupContent = this.createCropLayer(visualGroup.treatment);
+      instance = document.createElement("div");
+      instance.style.position = "absolute";
+      instance.style.inset = "0";
+      groupContent.append(instance);
+      placement.append(groupContent);
     }
-    const mask = reveal.treatment.mask;
-    if (mask) {
-      placement.style.clipPath = mask.shape === "ellipse"
-        ? "ellipse(50% 50% at 50% 50%)" : "inset(0)";
-      placement.setAttribute("data-mask-feather", String(mask.feather));
-    }
+    this.applyTreatment(instance, reveal.treatment, reveal.rotation);
 
     if (reveal.panel.asset) {
       const image = document.createElement("img");
@@ -193,10 +191,10 @@ export class BrowserRenderer implements Renderer {
           `${this.percent(right)} ${this.percent(bottom)} ` +
           `${this.percent(crop.x)})`;
       }
-      placement.append(image);
+      instance.append(image);
     } else if (reveal.panel.accessibleDescription) {
-      placement.setAttribute("role", "img");
-      placement.setAttribute(
+      instance.setAttribute("role", "img");
+      instance.setAttribute(
         "aria-label", reveal.panel.accessibleDescription
       );
     }
@@ -266,6 +264,66 @@ export class BrowserRenderer implements Renderer {
 
   private percent(value: number): string {
     return `${Number((value * 100).toFixed(6))}%`;
+  }
+
+  private applyTreatment(
+    element: HTMLElement, treatment: VisualTreatment, baseRotation: number
+  ): void {
+    const transform = treatment.transform;
+    const flipX = transform.flipX ? -1 : 1;
+    const flipY = transform.flipY ? -1 : 1;
+    const deformation = this.deformationScale(treatment);
+    element.style.transformOrigin =
+      `${transform.originX * 100}% ${transform.originY * 100}%`;
+    element.style.transform = [
+      `translate(${transform.translateX}px, ${transform.translateY}px)`,
+      `rotate(${baseRotation + transform.rotation}deg)`,
+      `skew(${transform.skewX}deg, ${transform.skewY}deg)`,
+      `scale(${transform.scaleX * flipX}, ${transform.scaleY * flipY})`,
+      `scale(${deformation.x}, ${deformation.y})`
+    ].join(" ");
+    element.style.opacity = String(treatment.appearance.opacity);
+    element.style.filter = treatment.appearance.filter;
+    const outlineWidth = treatment.appearance.outlineWidth;
+    if (outlineWidth > 0) {
+      element.style.outline =
+        `${outlineWidth}px solid ${treatment.appearance.outlineColor}`;
+      element.style.outlineOffset = `-${outlineWidth}px`;
+    }
+    const mask = treatment.mask;
+    if (mask) {
+      element.style.clipPath = mask.shape === "ellipse"
+        ? "ellipse(50% 50% at 50% 50%)" : "inset(0)";
+      element.setAttribute("data-mask-feather", String(mask.feather));
+    }
+    element.setAttribute("data-deformation-type", treatment.deformation.type);
+  }
+
+  private deformationScale(
+    treatment: VisualTreatment
+  ): {x: number; y: number} {
+    const {type, amountX, amountY} = treatment.deformation;
+    if (type === "none") return {x: 1, y: 1};
+    const direction = type === "stretch" ? 1 : -1;
+    return {
+      x: Number((2 ** (direction * amountX)).toFixed(6)),
+      y: Number((2 ** (direction * amountY)).toFixed(6))
+    };
+  }
+
+  private createCropLayer(treatment: VisualTreatment): HTMLElement {
+    const layer = this.root.ownerDocument.createElement("div");
+    layer.style.position = "absolute";
+    layer.style.inset = "0";
+    const crop = treatment.crop;
+    if (crop) {
+      const right = 1 - crop.x - crop.width;
+      const bottom = 1 - crop.y - crop.height;
+      layer.style.clipPath = `inset(${this.percent(crop.y)} ` +
+        `${this.percent(right)} ${this.percent(bottom)} ` +
+        `${this.percent(crop.x)})`;
+    }
+    return layer;
   }
 
   private cameraLayers(): readonly HTMLElement[] {
